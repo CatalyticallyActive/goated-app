@@ -1,0 +1,233 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Modern black theme with glassmorphism and silver/white accents */
+
+@layer base {
+  :root {
+    --background: 0 0% 5%;
+    --foreground: 0 0% 95%;
+
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 95%;
+
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 95%;
+
+    --primary: 0 0% 85%;
+    --primary-foreground: 0 0% 10%;
+
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 90%;
+
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 60%;
+
+    --accent: 0 0% 85%;
+    --accent-foreground: 0 0% 10%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 0 0% 85%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 8%;
+    --sidebar-foreground: 0 0% 80%;
+    --sidebar-primary: 0 0% 85%;
+    --sidebar-primary-foreground: 0 0% 10%;
+    --sidebar-accent: 0 0% 15%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 0 0% 20%;
+    --sidebar-ring: 0 0% 85%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-black text-white font-sans;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    background: radial-gradient(ellipse at top, rgba(255, 255, 255, 0.15) 0%, rgba(0, 0, 0, 1) 50%),
+                radial-gradient(ellipse at bottom right, rgba(255, 255, 255, 0.1) 0%, rgba(0, 0, 0, 1) 70%);
+    background-attachment: fixed;
+  }
+
+  html {
+    @apply font-sans;
+    scroll-behavior: smooth;
+  }
+}
+
+@layer utilities {
+  .glass-effect {
+    @apply bg-black/20 backdrop-blur-2xl border border-white/30;
+    background: linear-gradient(135deg, 
+      rgba(255, 255, 255, 0.1) 0%, 
+      rgba(255, 255, 255, 0.05) 50%, 
+      rgba(0, 0, 0, 0.1) 100%);
+    backdrop-filter: blur(25px);
+  }
+
+  .glass-card {
+    @apply bg-gradient-to-br from-white/10 via-white/5 to-transparent backdrop-blur-xl border border-white/20;
+  }
+
+  .glass-intense {
+    @apply bg-gradient-to-br from-white/20 via-gray-200/10 to-transparent backdrop-blur-3xl border border-white/30;
+  }
+  
+  .gradient-text {
+    @apply bg-gradient-to-r from-white via-gray-300 to-gray-400 bg-clip-text text-transparent;
+  }
+
+  .gradient-silver {
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #cbd5e1 100%);
+  }
+
+  .gradient-mesh {
+    background: 
+      radial-gradient(circle at top left, rgba(255, 255, 255, 0.3) 0%, transparent 50%),
+      radial-gradient(circle at top right, rgba(255, 255, 255, 0.2) 0%, transparent 50%),
+      radial-gradient(circle at bottom left, rgba(255, 255, 255, 0.2) 0%, transparent 50%),
+      radial-gradient(circle at bottom right, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
+  }
+  
+  .neon-silver {
+    @apply bg-gradient-to-r from-gray-300 to-gray-400;
+  }
+  
+  .neon-glow {
+  }
+
+  /* Scrolling Cards Animation */
+  .scrolling-cards-container {
+    animation: scrollCards 12s ease-in-out infinite;
+  }
+
+  .scrolling-card {
+    height: 500px;
+  }
+
+  /* Animation utilities */
+  .animate-fade-in {
+    animation: fadeIn 0.8s ease-out forwards;
+    opacity: 0;
+  }
+
+  .animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  .animate-scroll {
+    animation: scroll 20s linear infinite;
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .parallax {
+    transform: translateZ(0);
+    will-change: transform;
+  }
+
+  /* Animated Silver Gradient for Titles */
+  .animated-silver-gradient-text {
+    background: linear-gradient(270deg, #f8fafc, #e2e8f0, #cbd5e1, #f8fafc);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-fill-color: transparent;
+    animation: animated-silver-gradient 12s ease-in-out infinite;
+  }
+
+  @keyframes animated-silver-gradient {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+
+  /* Consistent and slightly smaller text sizes */
+  .title-xl { @apply text-3xl md:text-4xl font-bold mb-4 md:mb-6; }
+  .title-lg { @apply text-2xl md:text-3xl font-bold mb-4; }
+  .subtitle { @apply text-base md:text-lg font-light mt-0 mb-6 md:mb-8; }
+  .body-text { @apply text-sm md:text-base; }
+
+  /* Consistent paddings/margins for sections, cards, containers */
+  .section { @apply py-8 md:py-12; }
+  .container { @apply max-w-6xl mx-auto px-4 md:px-6; }
+  .card { @apply rounded-2xl p-6 md:p-8; }
+  .card-header { @apply pb-4; }
+  .card-title { @apply mb-2; }
+  .card-content { @apply space-y-4; }
+  .card-footer { @apply pt-4; }
+}
+
+/* Keyframe animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: .7;
+  }
+}
+
+@keyframes scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.4));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0.6));
+}

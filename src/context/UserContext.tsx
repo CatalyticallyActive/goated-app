@@ -17,6 +17,7 @@ interface UserData {
   dailyLossLimit: string;
   psychologicalFlaws: string;
   otherInstructions: string;
+  signupCode?: string;
   // Add other fields from your forms as needed
 }
 
@@ -37,6 +38,7 @@ const defaultUserData: UserData = {
   dailyLossLimit: "",
   psychologicalFlaws: "",
   otherInstructions: "",
+  signupCode: "",
 };
 
 // Create the context

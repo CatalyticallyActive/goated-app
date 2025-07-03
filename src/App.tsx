@@ -7,6 +7,7 @@ import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import Onboarding from "./pages/Onboarding";
 import Settings from "./pages/Settings";
+import FloatingBar from './pages/FloatingBar';
 import { UserProvider } from "./context/UserContext";
 
 const NotFound = () => (
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/signup" element={<SignUp />} />
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/floating-bar" element={<FloatingBar />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

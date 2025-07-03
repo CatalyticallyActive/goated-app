@@ -9,6 +9,10 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { Link } from 'react-router-dom';
 import { useUser } from '@/context/UserContext';
+import { screenShareService } from '@/lib/ScreenShareService';
+import InsightBar from '@/components/InsightBar';
+import { useScreenCapture } from '@/hooks/useScreenCapture';
+import { getVisionInsight } from '@/lib/openaiVision';
 
 const Settings = () => {
   const { user, setUser } = useUser();
@@ -45,6 +49,15 @@ const Settings = () => {
     otherInstructions: user.otherInstructions,
   });
 
+  // Add local state to track sharing status
+  const [isSharing, setIsSharing] = useState(false);
+  // Track reference to the popout window
+  const [barWindow, setBarWindow] = useState<Window | null>(null);
+
+  const screenshot = useScreenCapture(isSharing ? screenShareService.getStream() : null, 10000);
+  const [latestInsight, setLatestInsight] = useState<string | null>(null);
+  const [latestCategory, setLatestCategory] = useState<string | null>(null);
+
   // Update local state when user from context changes
   useEffect(() => {
     setProfileData({
@@ -67,6 +80,45 @@ const Settings = () => {
       otherInstructions: user.otherInstructions,
     });
   }, [user]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function analyze() {
+      if (screenshot) {
+        console.log('Screenshot captured, starting analysis...');
+        console.log('Screenshot data length:', screenshot.length);
+        const insight = await getVisionInsight(screenshot);
+        if (!cancelled && insight) {
+          console.log('Analysis completed, insight received:', insight);
+          setLatestInsight(insight);
+          // Extract category from [Category] at start
+          const match = insight.match(/^\[(Chart|Indicators|Orderbook|General)\]/i);
+          const category = match ? match[1] : null;
+          setLatestCategory(category);
+          console.log('Extracted category:', category || 'none');
+          // Pass to popup via localStorage (simple cross-window comms)
+          localStorage.setItem('goatedai_latest_insight', insight);
+          localStorage.setItem('goatedai_latest_category', category || '');
+          console.log('Insight saved to localStorage');
+          // Save to history
+          const historyRaw = localStorage.getItem('goatedai_insight_history');
+          let history = [];
+          try { history = historyRaw ? JSON.parse(historyRaw) : []; } catch {}
+          history.push({
+            insight,
+            category,
+            timestamp: Date.now()
+          });
+          localStorage.setItem('goatedai_insight_history', JSON.stringify(history));
+          console.log('Insight appended to history');
+        } else if (!cancelled) {
+          console.log('Analysis failed or returned null');
+        }
+      }
+    }
+    analyze();
+    return () => { cancelled = true; };
+  }, [screenshot]);
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -166,18 +218,55 @@ const Settings = () => {
 
   const hasPasswordData = passwordData.currentPassword || passwordData.newPassword || passwordData.confirmPassword;
 
+  // Handler for Start GoatedAI button
+  const handleStartGoatedAI = async () => {
+    const stream = await screenShareService.startCapture();
+    if (stream) {
+      setIsSharing(true);
+      // Open the floating bar in a pop-out window
+      const popup = screenShareService.openFloatingBarWindow('/floating-bar');
+      setBarWindow(popup);
+      alert('Screen sharing started!');
+    } else {
+      setIsSharing(false);
+      alert('Screen sharing failed or was cancelled.');
+    }
+  };
+
+  // Handler for stopping screen sharing
+  const handleStopGoatedAI = () => {
+    screenShareService.stopCapture();
+    setIsSharing(false);
+    if (barWindow && !barWindow.closed) {
+      barWindow.close();
+      setBarWindow(null);
+    }
+    alert('Screen sharing stopped.');
+  };
+
   return (
     <Layout>
-      {/* Hero Section */}
+      {/* Restore header and GoatedAI button */}
       <section className="section py-12 relative">
         <div className="container py-8 relative">
           <div className="text-center">
             <h1 className="title-xl text-white mb-0">Account Settings</h1>
             <p className="subtitle">Manage your account and preferences</p>
+            {user.email && (
+              <div className="mt-6 flex flex-col items-center gap-2">
+                <Button className="neon-blue" onClick={handleStartGoatedAI} disabled={isSharing}>
+                  {isSharing ? 'Sharing...' : 'Start GoatedAI'}
+                </Button>
+                {isSharing && (
+                  <Button className="neon-blue" variant="outline" onClick={handleStopGoatedAI}>
+                    Stop Sharing
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </section>
-
       <div className="container py-0">
         <Tabs defaultValue="profile" className="space-y-6">
           <TabsList className="grid w-full grid-cols-5 glass-effect border border-white/20">

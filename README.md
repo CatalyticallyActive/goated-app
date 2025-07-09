@@ -59,6 +59,21 @@ This project is built with:
 - React
 - shadcn-ui
 - Tailwind CSS
+- Document Picture-in-Picture API
+
+## Features
+
+### Picture-in-Picture Mode
+
+The GoatedAI floating bar now supports Picture-in-Picture (PiP) mode using the Document Picture-in-Picture API. When you click "Start GoatedAI":
+
+1. **Screen Sharing**: The browser prompts you to select a screen, window, or tab to share
+2. **PiP Window**: A compact Picture-in-Picture window opens that stays on top of other applications
+3. **Always Visible**: The PiP window remains visible even when you click elsewhere on your desktop
+4. **Compact Interface**: Optimized layout for the small PiP window with category buttons and AI insights
+5. **Easy Close**: Click the × button in the top-right corner to close the PiP window
+
+**Browser Support**: The PiP feature works in modern browsers that support the Document Picture-in-Picture API. For unsupported browsers, it falls back to a regular popup window.
 
 ## How can I deploy this project?
 

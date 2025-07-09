@@ -13,6 +13,7 @@ import { screenShareService } from '@/lib/ScreenShareService';
 import InsightBar from '@/components/InsightBar';
 import { useScreenCapture } from '@/hooks/useScreenCapture';
 import { getVisionInsight } from '@/lib/openaiVision';
+import FloatingBar from './FloatingBar';
 
 const Settings = () => {
   const { user, setUser } = useUser();
@@ -51,8 +52,8 @@ const Settings = () => {
 
   // Add local state to track sharing status
   const [isSharing, setIsSharing] = useState(false);
-  // Track reference to the popout window
-  const [barWindow, setBarWindow] = useState<Window | null>(null);
+  const [pipWindow, setPipWindow] = useState<Window | null>(null);
+  const floatingBarRef = React.useRef<HTMLDivElement>(null);
 
   const screenshot = useScreenCapture(isSharing ? screenShareService.getStream() : null, 10000);
   const [latestInsight, setLatestInsight] = useState<string | null>(null);
@@ -220,14 +221,35 @@ const Settings = () => {
 
   // Handler for Start GoatedAI button
   const handleStartGoatedAI = async () => {
+    console.log('Starting GoatedAI...');
     const stream = await screenShareService.startCapture();
     if (stream) {
+      console.log('Screen sharing started successfully');
       setIsSharing(true);
-      // Open the floating bar in a pop-out window
-      const popup = screenShareService.openFloatingBarWindow('/floating-bar');
-      setBarWindow(popup);
-      alert('Screen sharing started!');
+      // Document PiP API
+      if ('documentPictureInPicture' in window) {
+        console.log('Document PiP API is supported, creating PiP window...');
+        try {
+          const pipWin = await window.documentPictureInPicture!.requestWindow({
+            width: 520,
+            height: 120,
+            initialAspectRatio: 520 / 120,
+          });
+          console.log('PiP window created:', pipWin);
+          setPipWindow(pipWin);
+          // We'll render the floating bar into this window in a useEffect below
+        } catch (error) {
+          console.error('Failed to create PiP window:', error);
+          alert('Failed to create Picture-in-Picture window. Please try again.');
+          setIsSharing(false);
+        }
+      } else {
+        console.log('Document PiP API not supported');
+        alert('Your browser does not support Document Picture-in-Picture.');
+        setIsSharing(false);
+      }
     } else {
+      console.log('Screen sharing failed or was cancelled');
       setIsSharing(false);
       alert('Screen sharing failed or was cancelled.');
     }
@@ -237,15 +259,70 @@ const Settings = () => {
   const handleStopGoatedAI = () => {
     screenShareService.stopCapture();
     setIsSharing(false);
-    if (barWindow && !barWindow.closed) {
-      barWindow.close();
-      setBarWindow(null);
+    if (pipWindow && !pipWindow.closed) {
+      pipWindow.close();
+      setPipWindow(null);
     }
-    alert('Screen sharing stopped.');
   };
+
+  // Render the floating bar into the PiP window when it opens
+  React.useEffect(() => {
+    console.log('PiP window useEffect triggered, pipWindow:', pipWindow);
+    if (pipWindow && floatingBarRef.current) {
+      console.log('Setting up PiP window content...');
+      // Clear the PiP window and add necessary styles
+      pipWindow.document.body.innerHTML = '';
+      
+      // Add Tailwind CSS to the PiP window
+      const tailwindLink = pipWindow.document.createElement('link');
+      tailwindLink.rel = 'stylesheet';
+      tailwindLink.href = 'http://localhost:8080/src/index.css';
+      pipWindow.document.head.appendChild(tailwindLink);
+      console.log('Added Tailwind CSS to PiP window');
+      
+      // Add base styles
+      const style = pipWindow.document.createElement('style');
+      style.textContent = `
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; }
+        .pip-window { background: linear-gradient(135deg, #111827 0%, #1f2937 50%, #000000 100%); }
+        .pip-backdrop-blur { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+        .pip-glow-border { box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); border: 1px solid rgba(59, 130, 246, 0.2); }
+        .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .7; } }
+      `;
+      pipWindow.document.head.appendChild(style);
+      console.log('Added base styles to PiP window');
+      
+      const mount = pipWindow.document.createElement('div');
+      mount.id = 'pip-root';
+      pipWindow.document.body.appendChild(mount);
+      console.log('Created mount element in PiP window');
+      
+      // Render the FloatingBar component into the PiP window
+      console.log('Importing react-dom and rendering FloatingBar...');
+      import('react-dom').then(ReactDOM => {
+        console.log('ReactDOM imported:', ReactDOM);
+        const dom = ReactDOM.default || ReactDOM;
+        if (typeof (dom as any).createRoot === 'function') {
+          console.log('Using createRoot...');
+          (dom as any).createRoot(mount).render(<FloatingBar pipMode={true} />);
+        } else if (typeof (dom as any).render === 'function') {
+          console.log('Using render...');
+          (dom as any).render(<FloatingBar pipMode={true} />, mount);
+        } else {
+          console.error('Neither createRoot nor render found in ReactDOM');
+        }
+      }).catch(error => {
+        console.error('Failed to import react-dom:', error);
+      });
+    }
+  }, [pipWindow]);
 
   return (
     <Layout>
+      {/* Hidden floating bar container for PiP */}
+      <div ref={floatingBarRef} style={{ display: 'none' }} />
       {/* Restore header and GoatedAI button */}
       <section className="section py-12 relative">
         <div className="container py-8 relative">

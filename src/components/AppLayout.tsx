@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useUser } from '@/context/UserContext';
+import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 
 interface AppLayoutProps {
@@ -28,16 +28,16 @@ const AnimatedBanner = () => {
 };
 
 const AppLayout = ({ children }: AppLayoutProps) => {
-  const { user, setUser } = useUser();
+  const { user, signOut } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const isLoggedIn = !!user.email;
+  const isLoggedIn = !!user;
 
   useEffect(() => {
     setIsMenuOpen(false);
   }, []);
 
-  const handleLogout = () => {
-    setUser({ ...user, email: '' });
+  const handleLogout = async () => {
+    await signOut();
   };
 
   return (

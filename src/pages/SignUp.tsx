@@ -8,6 +8,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { Link, useNavigate } from 'react-router-dom';
 import { useUser } from '@/context/UserContext';
+import { supabase } from '@/lib/supabaseClient';
 
 const SignUp = () => {
   const { user, setUser } = useUser();
@@ -42,15 +43,81 @@ const SignUp = () => {
     navigate('/settings');
   };
 
-  const handleEmailSignup = (e: React.FormEvent) => {
+  const handleEmailSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Client-side validation
     if (password !== confirmPassword) {
       alert('Passwords do not match');
       return;
     }
-    // Handle email signup logic here
-    console.log('Signup attempt:', { email: user.email, password });
-    navigate('/settings');
+    
+    if (!user.email || !password) {
+      alert('Please enter both email and password');
+      return;
+    }
+    
+    if (password.length < 8) {
+      alert('Password must be at least 8 characters');
+      return;
+    }
+
+    try {
+      console.log('Attempting signup with:', { email: user.email, password, userData: user });
+
+      console.log('Attempting signup with:', { email: user.email, password, userData: user });
+
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: user.email,
+        password: password,
+        options: {
+          data: {
+            name: user.name || '',
+            trading_style: user.tradingStyle || '',
+            timeframes: user.timeframes || '',
+            risk_tolerance: user.riskTolerance || '',
+            position: user.position || '',
+            trading_experience: user.tradingExperience || '',
+          },
+        },
+      });
+
+      if (authError) {
+        console.error('Auth error:', authError);
+        throw new Error(authError.message);
+      }
+
+      const authUser = authData.user;
+      if (!authUser) {
+        throw new Error('User creation failed');
+      }
+
+      // Clear UserContext
+      setUser({
+        name: "",
+        email: "",
+        age: "",
+        position: "",
+        tradingExperience: "",
+        tradingFrequency: "",
+        biggestProblems: "",
+        tradingStyle: "",
+        timeframes: "",
+        portfolioSize: "",
+        riskTolerance: "",
+        maxPositions: "",
+        dailyLossLimit: "",
+        psychologicalFlaws: "",
+        otherInstructions: "",
+        signupCode: "",
+      });
+
+      console.log('User signed up successfully:', authUser.email);
+      navigate('/settings');
+    } catch (error) {
+      console.error('Signup error:', error.message, error);
+      alert(`Signup failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   };
 
   return (
@@ -138,16 +205,25 @@ const SignUp = () => {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="risk">Risk Tolerance (1-10)</Label>
-                    <Input 
-                      id="risk"
-                      type="number"
-                      min="1"
-                      max="10"
+                    <Label>Risk Tolerance</Label>
+                    <RadioGroup 
                       value={user.riskTolerance}
-                      onChange={(e) => handleInputChange('riskTolerance', e.target.value)}
-                      className="glass-effect border-white/20 text-white h-12 hover:border-white/30 focus:border-white/50 transition-all duration-300"
-                    />
+                      onValueChange={(value) => handleInputChange('riskTolerance', value)}
+                      className="mt-2"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="low" id="risk1" />
+                        <Label htmlFor="risk1" className="text-white">Low</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="medium" id="risk2" />
+                        <Label htmlFor="risk2" className="text-white">Medium</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="high" id="risk3" />
+                        <Label htmlFor="risk3" className="text-white">High</Label>
+                      </div>
+                    </RadioGroup>
                   </div>
                   <div>
                     <Label htmlFor="positions">Maximum Simultaneous Positions</Label>

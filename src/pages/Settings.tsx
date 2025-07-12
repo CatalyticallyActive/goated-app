@@ -29,7 +29,6 @@ const Settings = () => {
     confirmPassword: ''
   });
   const [isProfileSaving, setIsProfileSaving] = useState(false);
-  const [isTradingPrefsSaving, setIsTradingPrefsSaving] = useState(false);
   const [isPasswordSaving, setIsPasswordSaving] = useState(false);
 
   // Form data derived from context for editing
@@ -37,17 +36,6 @@ const Settings = () => {
     name: user.name,
     email: user.email,
     position: user.position,
-  });
-
-  const [tradingPreferences, setTradingPreferences] = useState({
-    tradingStyle: user.tradingStyle,
-    timeframes: user.timeframes,
-    portfolioSize: user.portfolioSize,
-    riskTolerance: user.riskTolerance,
-    maxPositions: user.maxPositions,
-    dailyLossLimit: user.dailyLossLimit,
-    psychologicalFlaws: user.psychologicalFlaws,
-    otherInstructions: user.otherInstructions,
   });
 
   // Add local state to track sharing status
@@ -113,16 +101,6 @@ const Settings = () => {
         name: user.name,
         email: user.email,
         position: user.position,
-      });
-      setTradingPreferences({
-        tradingStyle: user.tradingStyle,
-        timeframes: user.timeframes,
-        portfolioSize: user.portfolioSize,
-        riskTolerance: user.riskTolerance,
-        maxPositions: user.maxPositions,
-        dailyLossLimit: user.dailyLossLimit,
-        psychologicalFlaws: user.psychologicalFlaws,
-        otherInstructions: user.otherInstructions,
       });
     }
   }, [user, isLoading]);
@@ -254,48 +232,8 @@ const Settings = () => {
     }
   };
 
-  const handleTradingPreferencesUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsTradingPrefsSaving(true);
-    
-    try {
-      if (!authUser?.id) {
-        throw new Error('User not authenticated');
-      }
-
-      // Update the settings in the database
-      const { error } = await supabase
-        .from('users')
-        .update({
-          settings: {
-            ...user,
-            ...tradingPreferences,
-          }
-        })
-        .eq('id', authUser.id);
-
-      if (error) {
-        throw new Error(`Database update failed: ${error.message}`);
-      }
-
-      // Update local context
-      setUser({ ...user, ...tradingPreferences });
-      console.log('Trading preferences updated successfully:', tradingPreferences);
-      alert('Trading preferences updated successfully!');
-    } catch (error) {
-      console.error('Failed to update trading preferences:', error);
-      alert('Failed to update trading preferences. Please try again.');
-    } finally {
-      setIsTradingPrefsSaving(false);
-    }
-  };
-
   const handleProfileInputChange = (field: string, value: string) => {
     setProfileData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleTradingInputChange = (field: string, value: string) => {
-    setTradingPreferences(prev => ({ ...prev, [field]: value }));
   };
 
   const handlePasswordInputChange = (field: string, value: string) => {
@@ -309,16 +247,7 @@ const Settings = () => {
     position: user.position,
   });
 
-  const hasTradingChanges = JSON.stringify(tradingPreferences) !== JSON.stringify({
-    tradingStyle: user.tradingStyle,
-    timeframes: user.timeframes,
-    portfolioSize: user.portfolioSize,
-    riskTolerance: user.riskTolerance,
-    maxPositions: user.maxPositions,
-    dailyLossLimit: user.dailyLossLimit,
-    psychologicalFlaws: user.psychologicalFlaws,
-    otherInstructions: user.otherInstructions,
-  });
+
 
   const hasPasswordData = passwordData.currentPassword || passwordData.newPassword || passwordData.confirmPassword;
 
@@ -561,12 +490,12 @@ const Settings = () => {
       </section>
       <div className="container py-0">
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 glass-effect border border-white/20">
+                      <TabsList className="grid w-full grid-cols-4 glass-effect border border-white/20">
             <TabsTrigger value="profile" className="text-gray-300 data-[state=active]:text-white data-[state=active]:bg-white/10">Profile</TabsTrigger>
             <TabsTrigger value="privacy" className="text-gray-300 data-[state=active]:text-white data-[state=active]:bg-white/10">Privacy</TabsTrigger>
             <TabsTrigger value="billing" className="text-gray-300 data-[state=active]:text-white data-[state=active]:bg-white/10">Billing</TabsTrigger>
             <TabsTrigger value="history" className="text-gray-300 data-[state=active]:text-white data-[state=active]:bg-white/10">History</TabsTrigger>
-            <TabsTrigger value="assistant" className="text-gray-300 data-[state=active]:text-white data-[state=active]:bg-white/10">Assistant</TabsTrigger>
+
           </TabsList>
 
           <TabsContent value="profile">
@@ -761,143 +690,7 @@ const Settings = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="assistant">
-            <Card className="glass-effect border border-white/20">
-              <CardHeader>
-                <CardTitle className="text-white">Trading Preferences</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleTradingPreferencesUpdate} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Trading Style</Label>
-                      <RadioGroup
-                        value={tradingPreferences.tradingStyle}
-                        onValueChange={(value) => handleTradingInputChange('tradingStyle', value)}
-                        className="mt-2"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="day-trader" id="style1-settings" />
-                          <Label htmlFor="style1-settings">Day Trader</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="scalping" id="style2-settings" />
-                          <Label htmlFor="style2-settings">Scalping</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="long-term" id="style3-settings" />
-                          <Label htmlFor="style3-settings">Long Term</Label>
-                        </div>
-                      </RadioGroup>
-                    </div>
-                    <div>
-                      <Label>Usual Timeframes</Label>
-                      <RadioGroup
-                        value={tradingPreferences.timeframes}
-                        onValueChange={(value) => handleTradingInputChange('timeframes', value)}
-                        className="mt-2"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="15min" id="time1-settings" />
-                          <Label htmlFor="time1-settings">15 minutes</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="1h" id="time2-settings" />
-                          <Label htmlFor="time2-settings">1 hour</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="1d" id="time3-settings" />
-                          <Label htmlFor="time3-settings">1 day</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="1w" id="time4-settings" />
-                          <Label htmlFor="time4-settings">1 week</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="1m" id="time5-settings" />
-                          <Label htmlFor="time5-settings">1 month</Label>
-                        </div>
-                      </RadioGroup>
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="portfolio-settings">Portfolio Size</Label>
-                      <Input
-                        id="portfolio-settings"
-                        value={tradingPreferences.portfolioSize}
-                        onChange={(e) => handleTradingInputChange('portfolioSize', e.target.value)}
-                        className="bg-white/5 border-white/20 text-white"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="risk-settings">Risk Tolerance (1-10)</Label>
-                      <Input
-                        id="risk-settings"
-                        type="number"
-                        min="1"
-                        max="10"
-                        value={tradingPreferences.riskTolerance}
-                        onChange={(e) => handleTradingInputChange('riskTolerance', e.target.value)}
-                        className="bg-white/5 border-white/20 text-white"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="positions-settings">Maximum Simultaneous Positions</Label>
-                      <Input
-                        id="positions-settings"
-                        type="number"
-                        value={tradingPreferences.maxPositions}
-                        onChange={(e) => handleTradingInputChange('maxPositions', e.target.value)}
-                        className="bg-white/5 border-white/20 text-white"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="lossLimit-settings">Daily Loss Limit ($ or %)</Label>
-                      <Input
-                        id="lossLimit-settings"
-                        value={tradingPreferences.dailyLossLimit}
-                        onChange={(e) => handleTradingInputChange('dailyLossLimit', e.target.value)}
-                        className="bg-white/5 border-white/20 text-white"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="flaws-settings">Pre-identified Trading Psychological Flaws</Label>
-                    <Textarea
-                      id="flaws-settings"
-                      value={tradingPreferences.psychologicalFlaws}
-                      onChange={(e) => handleTradingInputChange('psychologicalFlaws', e.target.value)}
-                      className="bg-white/5 border-white/20 text-white"
-                      rows={3}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="instructions-settings">Other Instructions</Label>
-                    <Textarea
-                      id="instructions-settings"
-                      value={tradingPreferences.otherInstructions}
-                      onChange={(e) => handleTradingInputChange('otherInstructions', e.target.value)}
-                      className="bg-white/5 border-white/20 text-white"
-                      rows={4}
-                    />
-                  </div>
-
-                  <div className="flex justify-end pt-4">
-                    <Button type="submit" className="neon-blue" disabled={!hasTradingChanges || isTradingPrefsSaving}>
-                      {isTradingPrefsSaving ? 'Saving...' : 'Save Preferences'}
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
       </div>
     </Layout>

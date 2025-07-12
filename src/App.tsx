@@ -7,6 +7,7 @@ import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import Onboarding from "./pages/Onboarding";
 import Settings from "./pages/Settings";
+import Personalize from "./pages/Personalize";
 import FloatingBar from './pages/FloatingBar';
 import { AuthProvider } from "./context/AuthContext";
 import { UserProvider } from "./context/UserContext";
@@ -36,6 +37,11 @@ const App = () => (
               <Route path="/settings" element={
                 <ProtectedRoute>
                   <Settings />
+                </ProtectedRoute>
+              } />
+              <Route path="/personalize" element={
+                <ProtectedRoute>
+                  <Personalize />
                 </ProtectedRoute>
               } />
               <Route path="/floating-bar" element={<FloatingBar />} />

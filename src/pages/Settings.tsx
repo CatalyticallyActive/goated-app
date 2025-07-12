@@ -465,36 +465,24 @@ const Settings = () => {
 
   return (
     <Layout>
-      {/* Hidden floating bar container for PiP */}
+            {/* Hidden floating bar container for PiP */}
       <div ref={floatingBarRef} style={{ display: 'none' }} />
-      {/* Restore header and GoatedAI button */}
+      {/* Header */}
       <section className="section py-12 relative">
         <div className="container py-8 relative">
           <div className="text-center">
             <h1 className="title-xl text-white mb-0">Account Settings</h1>
             <p className="subtitle">Manage your account and preferences</p>
-            {user.email && (
-              <div className="mt-6 flex flex-col items-center gap-2">
-                <Button className="neon-blue" onClick={handleStartGoatedAI} disabled={isSharing}>
-                  {isSharing ? 'Sharing...' : 'Start GoatedAI'}
-                </Button>
-                {isSharing && (
-                  <Button className="neon-blue" variant="outline" onClick={handleStopGoatedAI}>
-                    Stop Sharing
-                  </Button>
-                )}
-              </div>
-            )}
           </div>
         </div>
       </section>
       <div className="container py-0">
         <Tabs defaultValue="profile" className="space-y-6">
-                      <TabsList className="grid w-full grid-cols-4 glass-effect border border-white/20">
+                      <TabsList className="grid w-full grid-cols-3 glass-effect border border-white/20">
             <TabsTrigger value="profile" className="text-gray-300 data-[state=active]:text-white data-[state=active]:bg-white/10">Profile</TabsTrigger>
             <TabsTrigger value="privacy" className="text-gray-300 data-[state=active]:text-white data-[state=active]:bg-white/10">Privacy</TabsTrigger>
             <TabsTrigger value="billing" className="text-gray-300 data-[state=active]:text-white data-[state=active]:bg-white/10">Billing</TabsTrigger>
-            <TabsTrigger value="history" className="text-gray-300 data-[state=active]:text-white data-[state=active]:bg-white/10">History</TabsTrigger>
+
 
           </TabsList>
 
@@ -651,44 +639,7 @@ const Settings = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="history">
-            <Card className="glass-effect border border-white/20">
-              <CardHeader>
-                <CardTitle className="text-white">Activity History</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="border-b border-white/20 pb-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="font-semibold text-white">Chart Analysis - EURUSD</h4>
-                        <p className="text-gray-400 text-sm">AI identified bullish pattern</p>
-                      </div>
-                      <span className="text-gray-500 text-sm">2 hours ago</span>
-                    </div>
-                  </div>
-                  <div className="border-b border-white/20 pb-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="font-semibold text-white">Settings Updated</h4>
-                        <p className="text-gray-400 text-sm">Risk tolerance changed to 7</p>
-                      </div>
-                      <span className="text-gray-500 text-sm">1 day ago</span>
-                    </div>
-                  </div>
-                  <div className="border-b border-white/20 pb-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="font-semibold text-white">Chart Analysis - BTCUSD</h4>
-                        <p className="text-gray-400 text-sm">AI suggested position adjustment</p>
-                      </div>
-                      <span className="text-gray-500 text-sm">2 days ago</span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+
 
 
         </Tabs>

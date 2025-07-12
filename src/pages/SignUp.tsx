@@ -65,19 +65,27 @@ const SignUp = () => {
     try {
       console.log('Attempting signup with:', { email: user.email, password, userData: user });
 
-      console.log('Attempting signup with:', { email: user.email, password, userData: user });
-
+      // Create auth user - trigger will handle database operations
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: user.email,
         password: password,
         options: {
           data: {
             name: user.name || '',
-            trading_style: user.tradingStyle || '',
-            timeframes: user.timeframes || '',
-            risk_tolerance: user.riskTolerance || '',
+            age: user.age || '',
             position: user.position || '',
-            trading_experience: user.tradingExperience || '',
+            tradingExperience: user.tradingExperience || '',
+            tradingFrequency: user.tradingFrequency || '',
+            biggestProblems: user.biggestProblems || '',
+            tradingStyle: user.tradingStyle || '',
+            timeframes: user.timeframes || '',
+            portfolioSize: user.portfolioSize || '',
+            riskTolerance: user.riskTolerance || '',
+            maxPositions: user.maxPositions || '',
+            dailyLossLimit: user.dailyLossLimit || '',
+            psychologicalFlaws: user.psychologicalFlaws || '',
+            otherInstructions: user.otherInstructions || '',
+            signupCode: user.signupCode || '',
           },
         },
       });

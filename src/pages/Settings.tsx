@@ -133,38 +133,49 @@ const Settings = () => {
       if (screenshot) {
         console.log('Screenshot captured, starting analysis...');
         console.log('Screenshot data length:', screenshot.length);
-        const insight = await getVisionInsight(screenshot);
-        if (!cancelled && insight) {
-          console.log('Analysis completed, insight received:', insight);
-          setLatestInsight(insight);
-          // Extract category from [Category] at start
-          const match = insight.match(/^\[(Chart|Indicators|Orderbook|General)\]/i);
-          const category = match ? match[1] : null;
-          setLatestCategory(category);
-          console.log('Extracted category:', category || 'none');
-          // Pass to popup via localStorage (simple cross-window comms)
-          localStorage.setItem('goatedai_latest_insight', insight);
-          localStorage.setItem('goatedai_latest_category', category || '');
-          console.log('Insight saved to localStorage');
-          // Save to history
-          const historyRaw = localStorage.getItem('goatedai_insight_history');
-          let history = [];
-          try { history = historyRaw ? JSON.parse(historyRaw) : []; } catch {}
-          history.push({
-            insight,
-            category,
-            timestamp: Date.now()
-          });
-          localStorage.setItem('goatedai_insight_history', JSON.stringify(history));
-          console.log('Insight appended to history');
-        } else if (!cancelled) {
-          console.log('Analysis failed or returned null');
+        
+        try {
+          // First, save screenshot to Supabase
+          if (authUser?.id) {
+            await saveScreenshotToSupabase(screenshot, authUser.id);
+          }
+          
+          // Then proceed with AI analysis
+          const insight = await getVisionInsight(screenshot);
+          if (!cancelled && insight) {
+            console.log('Analysis completed, insight received:', insight);
+            setLatestInsight(insight);
+            // Extract category from [Category] at start
+            const match = insight.match(/^\[(Chart|Indicators|Orderbook|General)\]/i);
+            const category = match ? match[1] : null;
+            setLatestCategory(category);
+            console.log('Extracted category:', category || 'none');
+            // Pass to popup via localStorage (simple cross-window comms)
+            localStorage.setItem('goatedai_latest_insight', insight);
+            localStorage.setItem('goatedai_latest_category', category || '');
+            console.log('Insight saved to localStorage');
+            // Save to history
+            const historyRaw = localStorage.getItem('goatedai_insight_history');
+            let history = [];
+            try { history = historyRaw ? JSON.parse(historyRaw) : []; } catch {}
+            history.push({
+              insight,
+              category,
+              timestamp: Date.now()
+            });
+            localStorage.setItem('goatedai_insight_history', JSON.stringify(history));
+            console.log('Insight appended to history');
+          } else if (!cancelled) {
+            console.log('Analysis failed or returned null');
+          }
+        } catch (error) {
+          console.error('Error processing screenshot:', error);
         }
       }
     }
     analyze();
     return () => { cancelled = true; };
-  }, [screenshot]);
+  }, [screenshot, authUser?.id]);
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -311,38 +322,140 @@ const Settings = () => {
 
   const hasPasswordData = passwordData.currentPassword || passwordData.newPassword || passwordData.confirmPassword;
 
+  // Function to save screenshot to Supabase
+  const saveScreenshotToSupabase = async (screenshotData: string, userId: string) => {
+    try {
+      // Extract base64 data (remove data:image/png;base64, prefix)
+      const base64Data = screenshotData.replace(/^data:image\/[a-z]+;base64,/, '');
+      
+      // Generate unique file path: ${user_id}/${timestamp}.png
+      const timestamp = Date.now();
+      const filename = `${userId}/${timestamp}.png`;
+      
+      // Convert base64 to binary data for upload
+      const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+      
+      console.log('Attempting to upload screenshot to temp-screenshots bucket...');
+      
+      // Upload to temp-screenshots bucket
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('temp-screenshots')
+        .upload(filename, binaryData, {
+          contentType: 'image/png',
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('Error uploading screenshot to storage:', uploadError);
+        
+        // Check if it's a bucket not found error
+        if (uploadError.message?.includes('not found') || uploadError.message?.includes('400')) {
+          console.error('The temp-screenshots bucket does not exist. Please create it in your Supabase dashboard.');
+          throw new Error('Storage bucket not configured. Please contact support.');
+        }
+        
+        // Check if it's an RLS policy error
+        if (uploadError.message?.includes('row-level security') || uploadError.message?.includes('403')) {
+          console.error('RLS policy is blocking the upload. Please check bucket policies.');
+          throw new Error('Access denied. Please check your permissions.');
+        }
+        
+        throw uploadError;
+      }
+
+      console.log('Screenshot uploaded successfully:', uploadData);
+
+      // Get public URL for the uploaded file
+      const { data: urlData } = supabase.storage
+        .from('temp-screenshots')
+        .getPublicUrl(filename);
+
+      console.log('Public URL generated:', urlData.publicUrl);
+
+      // Try to call RPC function to insert database record
+      let dbData = null;
+      try {
+        const { data: rpcData, error: rpcError } = await supabase.rpc('insert_screenshot', {
+          p_screenshot_url: urlData.publicUrl,
+          p_user_id: userId
+        });
+
+        if (rpcError) {
+          console.error('RPC function not found, trying direct insert:', rpcError);
+          
+          // Fallback: Direct insert into temp_screenshots table
+          const { data: directData, error: directError } = await supabase
+            .from('temp_screenshots')
+            .insert({
+              screenshot_url: urlData.publicUrl,
+              status: 'received'
+            })
+            .select()
+            .single();
+
+          if (directError) {
+            console.error('Direct insert also failed:', directError);
+            throw directError;
+          }
+
+          dbData = directData;
+          console.log('Screenshot saved via direct insert:', dbData);
+        } else {
+          dbData = rpcData;
+          console.log('Screenshot saved via RPC:', dbData);
+        }
+      } catch (error) {
+        console.error('All database insert methods failed:', error);
+        // Don't throw here - we still want to continue with AI analysis
+        console.log('Continuing with AI analysis despite database insert failure');
+      }
+
+      return dbData;
+    } catch (error) {
+      console.error('Failed to save screenshot to Supabase:', error);
+      throw error;
+    }
+  };
+
   // Handler for Start GoatedAI button
   const handleStartGoatedAI = async () => {
     console.log('Starting GoatedAI...');
+    
+    // First, create the PiP window while we still have user activation
+    let pipWin: Window | null = null;
+    if ('documentPictureInPicture' in window) {
+      console.log('Document PiP API is supported, creating PiP window...');
+      try {
+        pipWin = await window.documentPictureInPicture!.requestWindow({
+          width: 520,
+          height: 120,
+          initialAspectRatio: 520 / 120,
+        });
+        console.log('PiP window created:', pipWin);
+        setPipWindow(pipWin);
+      } catch (error) {
+        console.error('Failed to create PiP window:', error);
+        alert('Failed to create Picture-in-Picture window. Please try again.');
+        return;
+      }
+    } else {
+      console.log('Document PiP API not supported');
+      alert('Your browser does not support Document Picture-in-Picture.');
+      return;
+    }
+    
+    // Then start screen sharing
     const stream = await screenShareService.startCapture();
     if (stream) {
       console.log('Screen sharing started successfully');
       setIsSharing(true);
-      // Document PiP API
-      if ('documentPictureInPicture' in window) {
-        console.log('Document PiP API is supported, creating PiP window...');
-        try {
-          const pipWin = await window.documentPictureInPicture!.requestWindow({
-            width: 520,
-            height: 120,
-            initialAspectRatio: 520 / 120,
-          });
-          console.log('PiP window created:', pipWin);
-          setPipWindow(pipWin);
-          // We'll render the floating bar into this window in a useEffect below
-        } catch (error) {
-          console.error('Failed to create PiP window:', error);
-          alert('Failed to create Picture-in-Picture window. Please try again.');
-          setIsSharing(false);
-        }
-      } else {
-        console.log('Document PiP API not supported');
-        alert('Your browser does not support Document Picture-in-Picture.');
-        setIsSharing(false);
-      }
     } else {
       console.log('Screen sharing failed or was cancelled');
-      setIsSharing(false);
+      // Close the PiP window if screen sharing failed
+      if (pipWin && !pipWin.closed) {
+        pipWin.close();
+        setPipWindow(null);
+      }
       alert('Screen sharing failed or was cancelled.');
     }
   };
@@ -392,21 +505,18 @@ const Settings = () => {
       console.log('Created mount element in PiP window');
       
       // Render the FloatingBar component into the PiP window
-      console.log('Importing react-dom and rendering FloatingBar...');
-      import('react-dom').then(ReactDOM => {
-        console.log('ReactDOM imported:', ReactDOM);
-        const dom = ReactDOM.default || ReactDOM;
-        if (typeof (dom as any).createRoot === 'function') {
+      console.log('Importing react-dom/client and rendering FloatingBar...');
+      import('react-dom/client').then(ReactDOMClient => {
+        console.log('ReactDOMClient imported:', ReactDOMClient);
+        const { createRoot } = ReactDOMClient;
+        if (typeof createRoot === 'function') {
           console.log('Using createRoot...');
-          (dom as any).createRoot(mount).render(<FloatingBar pipMode={true} />);
-        } else if (typeof (dom as any).render === 'function') {
-          console.log('Using render...');
-          (dom as any).render(<FloatingBar pipMode={true} />, mount);
+          createRoot(mount).render(<FloatingBar pipMode={true} />);
         } else {
-          console.error('Neither createRoot nor render found in ReactDOM');
+          console.error('createRoot not found in react-dom/client');
         }
       }).catch(error => {
-        console.error('Failed to import react-dom:', error);
+        console.error('Failed to import react-dom/client:', error);
       });
     }
   }, [pipWindow]);

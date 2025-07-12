@@ -4,11 +4,7 @@ import React, { createContext, useState, useContext, ReactNode } from "react";
 interface UserData {
   name: string;
   email: string;
-  age: string;
   position: string;
-  tradingExperience: string;
-  tradingFrequency: string;
-  biggestProblems: string;
   tradingStyle: string;
   timeframes: string;
   portfolioSize: string;
@@ -25,11 +21,7 @@ interface UserData {
 const defaultUserData: UserData = {
   name: "",
   email: "",
-  age: "",
   position: "",
-  tradingExperience: "",
-  tradingFrequency: "",
-  biggestProblems: "",
   tradingStyle: "",
   timeframes: "",
   portfolioSize: "",

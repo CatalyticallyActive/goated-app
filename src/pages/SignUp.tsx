@@ -72,11 +72,7 @@ const SignUp = () => {
         options: {
           data: {
             name: user.name || '',
-            age: user.age || '',
             position: user.position || '',
-            tradingExperience: user.tradingExperience || '',
-            tradingFrequency: user.tradingFrequency || '',
-            biggestProblems: user.biggestProblems || '',
             tradingStyle: user.tradingStyle || '',
             timeframes: user.timeframes || '',
             portfolioSize: user.portfolioSize || '',
@@ -104,11 +100,7 @@ const SignUp = () => {
       setUser({
         name: "",
         email: "",
-        age: "",
         position: "",
-        tradingExperience: "",
-        tradingFrequency: "",
-        biggestProblems: "",
         tradingStyle: "",
         timeframes: "",
         portfolioSize: "",
@@ -303,17 +295,7 @@ const SignUp = () => {
                       placeholder="Your name"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="age">Age</Label>
-                    <Input 
-                      id="age"
-                      type="number"
-                      value={user.age}
-                      onChange={(e) => handleInputChange('age', e.target.value)}
-                      className="glass-effect border-white/20 text-white h-12 hover:border-white/30 focus:border-white/50 transition-all duration-300"
-                      placeholder="Your age"
-                    />
-                  </div>
+
                   <div>
                     <Label htmlFor="position">Position</Label>
                     <Input 
@@ -324,38 +306,7 @@ const SignUp = () => {
                       placeholder="e.g., Student, Professional Trader, Hobbyist"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="tradingExperience">Trading Experience (years)</Label>
-                    <Input 
-                      id="tradingExperience"
-                      type="number"
-                      value={user.tradingExperience}
-                      onChange={(e) => handleInputChange('tradingExperience', e.target.value)}
-                      className="glass-effect border-white/20 text-white h-12 hover:border-white/30 focus:border-white/50 transition-all duration-300"
-                      placeholder="e.g., 2"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="tradingFrequency">Trading Frequency</Label>
-                    <Input 
-                      id="tradingFrequency"
-                      value={user.tradingFrequency}
-                      onChange={(e) => handleInputChange('tradingFrequency', e.target.value)}
-                      className="glass-effect border-white/20 text-white h-12 hover:border-white/30 focus:border-white/50 transition-all duration-300"
-                      placeholder="e.g., Daily, Weekly, Monthly"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="biggestProblems">Biggest Problems in Trading</Label>
-                    <Textarea 
-                      id="biggestProblems"
-                      value={user.biggestProblems}
-                      onChange={(e) => handleInputChange('biggestProblems', e.target.value)}
-                      className="glass-effect border-white/20 text-white h-12 hover:border-white/30 focus:border-white/50 transition-all duration-300"
-                      rows={3}
-                      placeholder="e.g., Risk management, discipline, emotional control..."
-                    />
-                  </div>
+
                   <div className="flex justify-between mt-8">
                     <Button variant="outline" onClick={handleBack}>Back</Button>
                     <Button onClick={handleNext}>Next</Button>

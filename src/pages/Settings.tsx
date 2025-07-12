@@ -9,6 +9,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { Link } from 'react-router-dom';
 import { useUser } from '@/context/UserContext';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabaseClient';
 import { screenShareService } from '@/lib/ScreenShareService';
 import InsightBar from '@/components/InsightBar';
 import { useScreenCapture } from '@/hooks/useScreenCapture';
@@ -17,6 +19,8 @@ import FloatingBar from './FloatingBar';
 
 const Settings = () => {
   const { user, setUser } = useUser();
+  const { user: authUser } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
 
   // Local state for password fields and saving status
   const [passwordData, setPasswordData] = useState({
@@ -32,11 +36,7 @@ const Settings = () => {
   const [profileData, setProfileData] = useState({
     name: user.name,
     email: user.email,
-    age: user.age,
     position: user.position,
-    tradingExperience: user.tradingExperience,
-    tradingFrequency: user.tradingFrequency,
-    biggestProblems: user.biggestProblems,
   });
 
   const [tradingPreferences, setTradingPreferences] = useState({
@@ -59,28 +59,73 @@ const Settings = () => {
   const [latestInsight, setLatestInsight] = useState<string | null>(null);
   const [latestCategory, setLatestCategory] = useState<string | null>(null);
 
+  // Load user data from database on component mount
+  useEffect(() => {
+    const loadUserData = async () => {
+      if (!authUser?.id) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('settings')
+          .eq('id', authUser.id)
+          .single();
+
+        if (error) {
+          console.error('Error loading user data:', error);
+          return;
+        }
+
+        if (data?.settings) {
+          const settings = data.settings;
+          const userData = {
+            name: settings.name || '',
+            email: authUser.email || '',
+            age: settings.age || '',
+            position: settings.position || '',
+            tradingStyle: settings.tradingStyle || '',
+            timeframes: settings.timeframes || '',
+            portfolioSize: settings.portfolioSize || '',
+            riskTolerance: settings.riskTolerance || '',
+            maxPositions: settings.maxPositions || '',
+            dailyLossLimit: settings.dailyLossLimit || '',
+            psychologicalFlaws: settings.psychologicalFlaws || '',
+            otherInstructions: settings.otherInstructions || '',
+            signupCode: settings.signupCode || '',
+          };
+          
+          setUser(userData);
+        }
+      } catch (error) {
+        console.error('Failed to load user data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadUserData();
+  }, [authUser?.id, setUser]);
+
   // Update local state when user from context changes
   useEffect(() => {
-    setProfileData({
-      name: user.name,
-      email: user.email,
-      age: user.age,
-      position: user.position,
-      tradingExperience: user.tradingExperience,
-      tradingFrequency: user.tradingFrequency,
-      biggestProblems: user.biggestProblems,
-    });
-    setTradingPreferences({
-      tradingStyle: user.tradingStyle,
-      timeframes: user.timeframes,
-      portfolioSize: user.portfolioSize,
-      riskTolerance: user.riskTolerance,
-      maxPositions: user.maxPositions,
-      dailyLossLimit: user.dailyLossLimit,
-      psychologicalFlaws: user.psychologicalFlaws,
-      otherInstructions: user.otherInstructions,
-    });
-  }, [user]);
+    if (!isLoading) {
+      setProfileData({
+        name: user.name,
+        email: user.email,
+        position: user.position,
+      });
+      setTradingPreferences({
+        tradingStyle: user.tradingStyle,
+        timeframes: user.timeframes,
+        portfolioSize: user.portfolioSize,
+        riskTolerance: user.riskTolerance,
+        maxPositions: user.maxPositions,
+        dailyLossLimit: user.dailyLossLimit,
+        psychologicalFlaws: user.psychologicalFlaws,
+        otherInstructions: user.otherInstructions,
+      });
+    }
+  }, [user, isLoading]);
 
   useEffect(() => {
     let cancelled = false;
@@ -126,7 +171,26 @@ const Settings = () => {
     setIsProfileSaving(true);
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (!authUser?.id) {
+        throw new Error('User not authenticated');
+      }
+
+      // Update the settings in the database
+      const { error } = await supabase
+        .from('users')
+        .update({
+          settings: {
+            ...user,
+            ...profileData,
+          }
+        })
+        .eq('id', authUser.id);
+
+      if (error) {
+        throw new Error(`Database update failed: ${error.message}`);
+      }
+
+      // Update local context
       setUser({ ...user, ...profileData });
       console.log('Profile updated successfully:', profileData);
       alert('Profile updated successfully!');
@@ -151,16 +215,29 @@ const Settings = () => {
       return;
     }
     
+    if (passwordData.newPassword.length < 6) {
+      alert('New password must be at least 6 characters long');
+      return;
+    }
+    
     setIsPasswordSaving(true);
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Use Supabase's updateUser method to change password
+      const { error } = await supabase.auth.updateUser({
+        password: passwordData.newPassword
+      });
+
+      if (error) {
+        throw error;
+      }
+
       console.log('Password changed successfully');
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
       alert('Password changed successfully!');
     } catch (error) {
       console.error('Failed to change password:', error);
-      alert('Failed to change password. Please try again.');
+      alert(`Failed to change password: ${error instanceof Error ? error.message : 'Please try again.'}`);
     } finally {
       setIsPasswordSaving(false);
     }
@@ -171,7 +248,26 @@ const Settings = () => {
     setIsTradingPrefsSaving(true);
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (!authUser?.id) {
+        throw new Error('User not authenticated');
+      }
+
+      // Update the settings in the database
+      const { error } = await supabase
+        .from('users')
+        .update({
+          settings: {
+            ...user,
+            ...tradingPreferences,
+          }
+        })
+        .eq('id', authUser.id);
+
+      if (error) {
+        throw new Error(`Database update failed: ${error.message}`);
+      }
+
+      // Update local context
       setUser({ ...user, ...tradingPreferences });
       console.log('Trading preferences updated successfully:', tradingPreferences);
       alert('Trading preferences updated successfully!');
@@ -199,11 +295,7 @@ const Settings = () => {
   const hasProfileChanges = JSON.stringify(profileData) !== JSON.stringify({
     name: user.name,
     email: user.email,
-    age: user.age,
     position: user.position,
-    tradingExperience: user.tradingExperience,
-    tradingFrequency: user.tradingFrequency,
-    biggestProblems: user.biggestProblems,
   });
 
   const hasTradingChanges = JSON.stringify(tradingPreferences) !== JSON.stringify({
@@ -319,6 +411,19 @@ const Settings = () => {
     }
   }, [pipWindow]);
 
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+            <p className="text-white text-lg">Loading your settings...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       {/* Hidden floating bar container for PiP */}
@@ -377,88 +482,22 @@ const Settings = () => {
                         id="email"
                         type="email"
                         value={profileData.email}
-                        onChange={(e) => handleProfileInputChange('email', e.target.value)}
+                        disabled
+                        className="bg-white/5 border-white/20 text-gray-400 cursor-not-allowed"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="position" className="text-gray-300">Current Position/Occupation</Label>
+                      <Input 
+                        id="position"
+                        value={profileData.position}
+                        onChange={(e) => handleProfileInputChange('position', e.target.value)}
                         className="bg-white/5 border-white/20 text-white focus:border-white/40"
                       />
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="age" className="text-gray-300">Age</Label>
-                        <Input 
-                          id="age"
-                          type="number"
-                          value={profileData.age}
-                          onChange={(e) => handleProfileInputChange('age', e.target.value)}
-                          className="bg-white/5 border-white/20 text-white focus:border-white/40"
-                        />
-                      </div>
-                      
-                      <div>
-                        <Label htmlFor="position" className="text-gray-300">Current Position/Occupation</Label>
-                        <Input 
-                          id="position"
-                          value={profileData.position}
-                          onChange={(e) => handleProfileInputChange('position', e.target.value)}
-                          className="bg-white/5 border-white/20 text-white focus:border-white/40"
-                        />
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <Label className="text-gray-300">Years of Trading Experience</Label>
-                      <RadioGroup 
-                        value={profileData.tradingExperience}
-                        onValueChange={(value) => handleProfileInputChange('tradingExperience', value)}
-                        className="mt-2"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="1-3" id="exp1" />
-                          <Label htmlFor="exp1" className="text-white">1-3 years</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="3-6" id="exp2" />
-                          <Label htmlFor="exp2" className="text-white">3-6 years</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="6+" id="exp3" />
-                          <Label htmlFor="exp3" className="text-white">6+ years</Label>
-                        </div>
-                      </RadioGroup>
-                    </div>
-                    
-                    <div>
-                      <Label className="text-gray-300">Trading Frequency</Label>
-                      <RadioGroup
-                        value={profileData.tradingFrequency}
-                        onValueChange={(value) => handleProfileInputChange('tradingFrequency', value)}
-                        className="mt-2"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="daily" id="freq1" />
-                          <Label htmlFor="freq1">Daily</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="weekly" id="freq2" />
-                          <Label htmlFor="freq2">Weekly</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="monthly" id="freq3" />
-                          <Label htmlFor="freq3">Monthly</Label>
-                        </div>
-                      </RadioGroup>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="problems" className="text-gray-300">Biggest Problems in Trading</Label>
-                      <Textarea 
-                        id="problems"
-                        value={profileData.biggestProblems}
-                        onChange={(e) => handleProfileInputChange('biggestProblems', e.target.value)}
-                        className="bg-white/5 border-white/20 text-white focus:border-white/40"
-                        rows={3}
-                      />
-                    </div>
+
                     
                     <div className="flex justify-end pt-4">
                       <Button type="submit" className="neon-blue" disabled={!hasProfileChanges || isProfileSaving}>

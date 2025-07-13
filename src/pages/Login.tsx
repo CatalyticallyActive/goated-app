@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import Layout from '@/components/AppLayout';
+import AuthLayout from '@/components/AuthLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -43,8 +43,8 @@ const Login = () => {
   };
 
   return (
-    <Layout>
-      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-16">
+    <AuthLayout>
+      <div className="min-h-screen flex items-center justify-center px-4 py-16">
         <div className="animate-fade-in">
           <Card className="w-full max-w-md glass-effect border border-white/20 hover:border-white/30 transition-all duration-300">
             <CardHeader className="text-center pb-8">
@@ -132,7 +132,7 @@ const Login = () => {
           </Card>
         </div>
       </div>
-    </Layout>
+    </AuthLayout>
   );
 };
 

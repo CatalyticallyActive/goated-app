@@ -153,7 +153,7 @@ const Personalize = () => {
       <div className="container py-8">
         <div className="text-center mb-8">
           <h1 className="title-xl text-white mb-2">Personalize Your Assistant</h1>
-          <p className="subtitle">Configure your trading preferences to get personalized AI insights</p>
+          <p className="subtitle">Configure your trading preferences to personalize your AI analyses</p>
         </div>
         
         <Card className="glass-effect border border-white/20 max-w-4xl mx-auto">
@@ -227,23 +227,31 @@ const Personalize = () => {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="risk-personalize" className="text-gray-300">Risk Tolerance (1-10)</Label>
-                  <Input
-                    id="risk-personalize"
-                    type="number"
-                    min="1"
-                    max="10"
+                  <Label className="text-gray-300">Risk Tolerance</Label>
+                  <RadioGroup
                     value={tradingPreferences.riskTolerance}
-                    onChange={(e) => handleTradingInputChange('riskTolerance', e.target.value)}
-                    className="bg-white/5 border-white/20 text-white focus:border-white/40"
-                    placeholder="1-10"
-                  />
+                    onValueChange={(value) => handleTradingInputChange('riskTolerance', value)}
+                    className="mt-2"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="low" id="risk1-personalize" />
+                      <Label htmlFor="risk1-personalize" className="text-gray-300">Low</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="medium" id="risk2-personalize" />
+                      <Label htmlFor="risk2-personalize" className="text-gray-300">Medium</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="high" id="risk3-personalize" />
+                      <Label htmlFor="risk3-personalize" className="text-gray-300">High</Label>
+                    </div>
+                  </RadioGroup>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <Label htmlFor="positions-personalize" className="text-gray-300">Maximum Simultaneous Positions</Label>
+                  <Label htmlFor="positions-personalize" className="text-gray-300">Expected Maximum Simultaneous Positions</Label>
                   <Input
                     id="positions-personalize"
                     type="number"

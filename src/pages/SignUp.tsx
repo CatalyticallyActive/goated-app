@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import Layout from '@/components/AppLayout';
+import AuthLayout from '@/components/AuthLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -121,8 +121,8 @@ const SignUp = () => {
   };
 
   return (
-    <Layout>
-      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-8">
+    <AuthLayout>
+      <div className="min-h-screen flex items-center justify-center px-4 py-8">
         <div className="gradient-mesh absolute inset-0 opacity-20"></div>
         <div className="animate-fade-in relative z-10">
           <Card className={`w-full ${step === 5 ? 'max-w-md' : 'max-w-2xl'} glass-card border border-white/20 hover:border-white/30 transition-all duration-300`}>
@@ -226,7 +226,7 @@ const SignUp = () => {
                     </RadioGroup>
                   </div>
                   <div>
-                    <Label htmlFor="positions">Maximum Simultaneous Positions</Label>
+                    <Label htmlFor="positions">Expected Maximum Simultaneous Positions</Label>
                     <Input 
                       id="positions"
                       type="number"
@@ -413,7 +413,7 @@ const SignUp = () => {
           </Card>
         </div>
       </div>
-    </Layout>
+    </AuthLayout>
   );
 };
 

@@ -46,29 +46,16 @@ serve(async (req) => {
 
     // Fetch the storage path from the temp-screenshots table using screenshot_id
     const { data: screenshotData, error: screenshotError } = await supabase
-      .from('temp-screenshots')
-      .select('path')  // Assuming there's a 'path' column storing the storage path
+      .from('temp_screenshots')
+      .select('screenshot_url')  // Assuming there's a 'screenshot_url' column storing the public URL
       .eq('id', screenshot_id)
       .single();
 
-    if (screenshotError || !screenshotData || !screenshotData.path) {
-      throw new Error('Failed to fetch screenshot path');
+    if (screenshotError || !screenshotData || !screenshotData.screenshot_url) {
+      throw new Error('Failed to fetch screenshot URL');
     }
 
-    const imagePath = screenshotData.path;
-
-    // Download image from storage
-    const { data: imageData, error: storageError } = await supabase.storage
-      .from('temp-screenshots')
-      .download(imagePath);
-
-    if (storageError || !imageData) {
-      throw new Error('Failed to download image');
-    }
-
-    // Convert Blob to base64
-    const arrayBuffer = await imageData.arrayBuffer();
-    const base64Image = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const imageUrl = screenshotData.screenshot_url;
 
     // Build personalized system prompt
     const systemPrompt = `
@@ -103,7 +90,7 @@ Always end with "Not financial advice".
           role: 'user',
           content: [
             { type: 'text', text: 'Analyze this trading screenshot:' },
-            { type: 'image_url', image_url: { url: `data:image/png;base64,${base64Image}` } },
+            { type: 'image_url', image_url: { url: imageUrl } },
           ],
         },
       ],
@@ -127,6 +114,7 @@ Always end with "Not financial advice".
     const { error: insertError } = await supabase.from('llm_analyses').insert({
       screenshot_id,
       llm_model_used: 'gpt-4o',
+      user_id: userId,
       prompt_used: systemPrompt,
       llm_raw_output: rawOutput,
       parsed_analysis: parsedAnalysis,

@@ -16,10 +16,12 @@ import InsightBar from '@/components/InsightBar';
 import { useScreenCapture } from '@/hooks/useScreenCapture';
 import { getVisionInsight } from '@/lib/openaiVision';
 import FloatingBar from './FloatingBar';
+import { useToast } from '@/hooks/use-toast';
+import AnalysisDisplay from '@/components/AnalysisDisplay';
 
 const Settings = () => {
   const { user, setUser } = useUser();
-  const { user: authUser } = useAuth();
+  const { user: authUser, session } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
 
   // Local state for password fields and saving status
@@ -44,8 +46,7 @@ const Settings = () => {
   const floatingBarRef = React.useRef<HTMLDivElement>(null);
 
   const screenshot = useScreenCapture(isSharing ? screenShareService.getStream() : null, 10000);
-  const [latestInsight, setLatestInsight] = useState<string | null>(null);
-  const [latestCategory, setLatestCategory] = useState<string | null>(null);
+  const { toast } = useToast();
 
   // Load user data from database on component mount
   useEffect(() => {
@@ -115,37 +116,33 @@ const Settings = () => {
         try {
           // First, save screenshot to Supabase
           if (authUser?.id) {
-            await saveScreenshotToSupabase(screenshot, authUser.id);
+            const dbData = await saveScreenshotToSupabase(screenshot, authUser.id);
+            
+            if (dbData?.id) {
+              const screenshotId = dbData.id;
+              
+              // Invoke edge function
+              const { data, error } = await supabase.functions.invoke('analyze-screenshot', {
+                body: { userId: authUser.id, screenshot_id: screenshotId },
+                headers: { Authorization: `Bearer ${session?.access_token}` },
+                method: 'POST'
+              });
+              
+              if (error) {
+                console.error('Failed to invoke analyze-screenshot:', error);
+                toast({
+                  title: 'Analysis Failed',
+                  description: 'Unable to analyze screenshot. Please try again.',
+                  variant: 'destructive'
+                });
+              } else {
+                console.log('Analysis response:', data);
+              }
+            } else {
+              console.error('No screenshot ID returned from upload');
+            }
           }
           
-          // Then proceed with AI analysis
-          const insight = await getVisionInsight(screenshot);
-          if (!cancelled && insight) {
-            console.log('Analysis completed, insight received:', insight);
-            setLatestInsight(insight);
-            // Extract category from [Category] at start
-            const match = insight.match(/^\[(Chart|Indicators|Orderbook|General)\]/i);
-            const category = match ? match[1] : null;
-            setLatestCategory(category);
-            console.log('Extracted category:', category || 'none');
-            // Pass to popup via localStorage (simple cross-window comms)
-            localStorage.setItem('goatedai_latest_insight', insight);
-            localStorage.setItem('goatedai_latest_category', category || '');
-            console.log('Insight saved to localStorage');
-            // Save to history
-            const historyRaw = localStorage.getItem('goatedai_insight_history');
-            let history = [];
-            try { history = historyRaw ? JSON.parse(historyRaw) : []; } catch {}
-            history.push({
-              insight,
-              category,
-              timestamp: Date.now()
-            });
-            localStorage.setItem('goatedai_insight_history', JSON.stringify(history));
-            console.log('Insight appended to history');
-          } else if (!cancelled) {
-            console.log('Analysis failed or returned null');
-          }
         } catch (error) {
           console.error('Error processing screenshot:', error);
         }
@@ -153,7 +150,7 @@ const Settings = () => {
     }
     analyze();
     return () => { cancelled = true; };
-  }, [screenshot, authUser?.id]);
+  }, [screenshot, authUser?.id, session, toast]);
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -644,6 +641,7 @@ const Settings = () => {
 
         </Tabs>
       </div>
+      <AnalysisDisplay />
     </Layout>
   );
 };

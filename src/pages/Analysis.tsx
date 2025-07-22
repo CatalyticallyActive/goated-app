@@ -5,37 +5,81 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
 import { screenShareService } from '@/lib/ScreenShareService';
 import { useScreenCapture } from '@/hooks/useScreenCapture';
-import { getVisionInsight } from '@/lib/openaiVision';
 import { supabase } from '@/lib/supabaseClient';
 import FloatingBar from './FloatingBar';
+import { useToast } from '@/hooks/use-toast';
 
 const Analysis = () => {
-  const { user: authUser } = useAuth();
+  const { user: authUser, session } = useAuth();  // Add session for access_token
   const [isSharing, setIsSharing] = useState(false);
   const [pipWindow, setPipWindow] = useState<Window | null>(null);
   const floatingBarRef = React.useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
   const screenshot = useScreenCapture(isSharing ? screenShareService.getStream() : null, 10000);
 
-  // Save screenshot to Supabase
+  // Updated saveScreenshotToSupabase (copied/adapted from Settings.tsx)
   const saveScreenshotToSupabase = async (screenshotData: string, userId: string) => {
     try {
-      const { data: dbData, error } = await supabase
-        .from('screenshots')
+      // Extract base64 data (remove data:image/png;base64, prefix)
+      const base64Data = screenshotData.replace(/^data:image\/[a-z]+;base64,/, '');
+      
+      // Convert base64 to binary data for upload
+      const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+      
+      // Generate unique file path
+      const timestamp = Date.now();
+      const filePath = `${userId}/${timestamp}.png`;
+      
+      console.log('Attempting to upload screenshot to temp-screenshots bucket...');
+      
+      // Upload to temp-screenshots bucket
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('temp-screenshots')
+        .upload(filePath, binaryData, {
+          contentType: 'image/png',
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('Error uploading screenshot to storage:', uploadError);
+        throw uploadError;
+      }
+
+      console.log('Screenshot uploaded successfully:', uploadData);
+
+      // Get public URL using the correct path
+      const { data: urlData } = supabase.storage
+        .from('temp-screenshots')
+        .getPublicUrl(uploadData.path);
+
+      console.log('Public URL generated:', urlData.publicUrl);
+
+      // Insert record with the correct URL
+      const { data: dbData, error: dbError } = await supabase
+        .from('temp-screenshots')  // Use hyphenated name to match what's in Supabase
         .insert({
           user_id: userId,
-          screenshot_data: screenshotData,
-          created_at: new Date().toISOString(),
+          screenshot_url: urlData.publicUrl,
+          captured_at: new Date().toISOString()
         })
         .select()
         .single();
 
-      if (error) {
-        console.error('Supabase insert error:', error);
-        throw error;
+      if (dbError) {
+        console.error('Database insert failed:', dbError);
+        console.error('Error details:', {
+          table: 'temp-screenshots',
+          error: dbError,
+          data: { userId, url: urlData.publicUrl }
+        });
+        throw dbError;
       }
 
+      console.log('Screenshot saved to database:', dbData);
       return dbData;
+
     } catch (error) {
       console.error('Failed to save screenshot to Supabase:', error);
       throw error;
@@ -155,36 +199,32 @@ const Analysis = () => {
         console.log('Screenshot data length:', screenshot.length);
         
         try {
-          // First, save screenshot to Supabase
           if (authUser?.id) {
-            await saveScreenshotToSupabase(screenshot, authUser.id);
-          }
-          
-          // Then proceed with AI analysis
-          const insight = await getVisionInsight(screenshot);
-          if (!cancelled && insight) {
-            console.log('Analysis completed, insight received:', insight);
-            // Extract category from [Category] at start
-            const match = insight.match(/^\[(Chart|Indicators|Orderbook|General)\]/i);
-            const category = match ? match[1] : null;
-            console.log('Extracted category:', category || 'none');
-            // Pass to popup via localStorage (simple cross-window comms)
-            localStorage.setItem('goatedai_latest_insight', insight);
-            localStorage.setItem('goatedai_latest_category', category || '');
-            console.log('Insight saved to localStorage');
-            // Save to history
-            const historyRaw = localStorage.getItem('goatedai_insight_history');
-            let history = [];
-            try { history = historyRaw ? JSON.parse(historyRaw) : []; } catch {}
-            history.push({
-              insight,
-              category,
-              timestamp: Date.now()
-            });
-            localStorage.setItem('goatedai_insight_history', JSON.stringify(history));
-            console.log('Insight appended to history');
-          } else if (!cancelled) {
-            console.log('Analysis failed or returned null');
+            const dbData = await saveScreenshotToSupabase(screenshot, authUser.id);
+            
+            // RPC returns the ID directly, so we can use dbData as the screenshotId
+            if (dbData) {
+              const screenshotId = typeof dbData === 'string' ? dbData : dbData.id;
+              
+              const { data, error } = await supabase.functions.invoke('analyze-screenshot', {
+                body: { userId: authUser.id, screenshot_id: screenshotId },
+                headers: { Authorization: `Bearer ${session?.access_token}` },
+                method: 'POST'
+              });
+              
+              if (error) {
+                console.error('Failed to invoke analyze-screenshot:', error);
+                toast({
+                  title: 'Analysis Failed',
+                  description: 'Unable to analyze screenshot. Please try again.',
+                  variant: 'destructive'
+                });
+              } else {
+                console.log('Analysis response:', data);
+              }
+            } else {
+              console.error('No screenshot data returned from upload');
+            }
           }
         } catch (error) {
           console.error('Error processing screenshot:', error);
@@ -193,7 +233,7 @@ const Analysis = () => {
     }
     analyze();
     return () => { cancelled = true; };
-  }, [screenshot, authUser?.id]);
+  }, [screenshot, authUser?.id, session, toast]);
 
   return (
     <Layout>
@@ -223,43 +263,7 @@ const Analysis = () => {
           )}
         </div>
 
-        {/* Analysis History */}
-        <Card className="glass-effect border border-white/20 max-w-4xl mx-auto">
-          <CardHeader>
-            <CardTitle className="text-white">Activity History</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="border-b border-white/20 pb-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h4 className="font-semibold text-white">Chart Analysis - EURUSD</h4>
-                    <p className="text-gray-400 text-sm">AI identified bullish pattern</p>
-                  </div>
-                  <span className="text-gray-500 text-sm">2 hours ago</span>
-                </div>
-              </div>
-              <div className="border-b border-white/20 pb-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h4 className="font-semibold text-white">Settings Updated</h4>
-                    <p className="text-gray-400 text-sm">Risk tolerance changed to 7</p>
-                  </div>
-                  <span className="text-gray-500 text-sm">1 day ago</span>
-                </div>
-              </div>
-              <div className="border-b border-white/20 pb-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h4 className="font-semibold text-white">Chart Analysis - BTCUSD</h4>
-                    <p className="text-gray-400 text-sm">AI suggested position adjustment</p>
-                  </div>
-                  <span className="text-gray-500 text-sm">2 days ago</span>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Removed unused Activity History Card */}
       </div>
     </Layout>
   );

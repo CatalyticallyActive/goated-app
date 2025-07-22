@@ -18,11 +18,13 @@ const AnalysisDisplay = () => {
         .eq('user_id', authUser.id)
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       if (data?.parsed_analysis) {
         setLatestAnalysis(data.parsed_analysis);
+      } else {
+        setLatestAnalysis(null);
       }
     } catch (error) {
       console.error('Failed to fetch latest analysis:', error);

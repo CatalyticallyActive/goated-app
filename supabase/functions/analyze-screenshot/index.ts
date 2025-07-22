@@ -3,18 +3,23 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import OpenAI from 'https://deno.land/x/openai@v4.69.0/mod.ts';
 
 const corsHeaders = {
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-auth',
+  'Access-Control-Max-Age': '86400',  // 24 hours in seconds
 };
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   if (req.method !== 'POST') {
-    return new Response('Method Not Allowed', { status: 405, headers: corsHeaders });
+    return new Response('Method Not Allowed', { 
+      status: 405, 
+      headers: { ...corsHeaders, 'Content-Type': 'text/plain' }
+    });
   }
 
   try {
@@ -44,10 +49,10 @@ serve(async (req) => {
 
     const settings = userData.settings || {};
 
-    // Fetch the storage path from the temp-screenshots table using screenshot_id
+    // Fetch the screenshot URL from temp-screenshots table
     const { data: screenshotData, error: screenshotError } = await supabase
-      .from('temp_screenshots')
-      .select('screenshot_url')  // Assuming there's a 'screenshot_url' column storing the public URL
+      .from('temp-screenshots')
+      .select('screenshot_url')
       .eq('id', screenshot_id)
       .single();
 
@@ -99,7 +104,7 @@ Always end with "Not financial advice".
 
     const rawOutput = response.choices[0].message.content || 'No analysis generated';
 
-    // Parse category and insight (assuming analysis starts with [Category] followed by insight)
+    // Parse category and insight
     const categoryMatch = rawOutput.match(/\[(Chart|Indicators|Orderbook|General)\]/);
     const category = categoryMatch ? categoryMatch[1] : 'General';
     const insight = rawOutput.replace(/\[(Chart|Indicators|Orderbook|General)\]/, '').trim();
@@ -125,16 +130,28 @@ Always end with "Not financial advice".
       throw new Error('Failed to insert analysis: ' + insertError.message);
     }
 
-    // Return results
+    // Return results with CORS headers
     return new Response(
       JSON.stringify({ category, insight }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      { 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json'
+        }, 
+        status: 200 
+      }
     );
   } catch (error) {
     console.error(error);
     return new Response(
       JSON.stringify({ error: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      { 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json'
+        }, 
+        status: 500 
+      }
     );
   }
 });

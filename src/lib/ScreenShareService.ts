@@ -11,7 +11,6 @@ export class ScreenShareService {
       return this.stream;
     }
     try {
-      // Use the most permissive options for maximum compatibility
       this.stream = await navigator.mediaDevices.getDisplayMedia({
         video: true
       });

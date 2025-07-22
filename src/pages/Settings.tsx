@@ -11,13 +11,9 @@ import { Link } from 'react-router-dom';
 import { useUser } from '@/context/UserContext';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
-import { screenShareService } from '@/lib/ScreenShareService';
-import InsightBar from '@/components/InsightBar';
-import { useScreenCapture } from '@/hooks/useScreenCapture';
-import { getVisionInsight } from '@/lib/openaiVision';
-import FloatingBar from './FloatingBar';
 import { useToast } from '@/hooks/use-toast';
 import AnalysisDisplay from '@/components/AnalysisDisplay';
+import GoatedAIControls from '@/components/GoatedAIControls';
 
 const Settings = () => {
   const { user, setUser } = useUser();
@@ -40,12 +36,6 @@ const Settings = () => {
     position: user.position,
   });
 
-  // Add local state to track sharing status
-  const [isSharing, setIsSharing] = useState(false);
-  const [pipWindow, setPipWindow] = useState<Window | null>(null);
-  const floatingBarRef = React.useRef<HTMLDivElement>(null);
-
-  const screenshot = useScreenCapture(isSharing ? screenShareService.getStream() : null, 10000);
   const { toast } = useToast();
 
   // Load user data from database on component mount
@@ -105,52 +95,6 @@ const Settings = () => {
       });
     }
   }, [user, isLoading]);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function analyze() {
-      if (screenshot) {
-        console.log('Screenshot captured, starting analysis...');
-        console.log('Screenshot data length:', screenshot.length);
-        
-        try {
-          // First, save screenshot to Supabase
-          if (authUser?.id) {
-            const dbData = await saveScreenshotToSupabase(screenshot, authUser.id);
-            
-            if (dbData?.id) {
-              const screenshotId = dbData.id;
-              
-              // Invoke edge function
-              const { data, error } = await supabase.functions.invoke('analyze-screenshot', {
-                body: { userId: authUser.id, screenshot_id: screenshotId },
-                headers: { Authorization: `Bearer ${session?.access_token}` },
-                method: 'POST'
-              });
-              
-              if (error) {
-                console.error('Failed to invoke analyze-screenshot:', error);
-                toast({
-                  title: 'Analysis Failed',
-                  description: 'Unable to analyze screenshot. Please try again.',
-                  variant: 'destructive'
-                });
-              } else {
-                console.log('Analysis response:', data);
-              }
-            } else {
-              console.error('No screenshot ID returned from upload');
-            }
-          }
-          
-        } catch (error) {
-          console.error('Error processing screenshot:', error);
-        }
-      }
-    }
-    analyze();
-    return () => { cancelled = true; };
-  }, [screenshot, authUser?.id, session, toast]);
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -343,110 +287,6 @@ const Settings = () => {
     }
   };
 
-  // Handler for Start GoatedAI button
-  const handleStartGoatedAI = async () => {
-    console.log('Starting GoatedAI...');
-    
-    // First, create the PiP window while we still have user activation
-    let pipWin: Window | null = null;
-    if ('documentPictureInPicture' in window) {
-      console.log('Document PiP API is supported, creating PiP window...');
-      try {
-        pipWin = await window.documentPictureInPicture!.requestWindow({
-          width: 520,
-          height: 120,
-          initialAspectRatio: 520 / 120,
-        });
-        console.log('PiP window created:', pipWin);
-        setPipWindow(pipWin);
-      } catch (error) {
-        console.error('Failed to create PiP window:', error);
-        alert('Failed to create Picture-in-Picture window. Please try again.');
-        return;
-      }
-    } else {
-      console.log('Document PiP API not supported');
-      alert('Your browser does not support Document Picture-in-Picture.');
-      return;
-    }
-    
-    // Then start screen sharing
-    const stream = await screenShareService.startCapture();
-    if (stream) {
-      console.log('Screen sharing started successfully');
-      setIsSharing(true);
-    } else {
-      console.log('Screen sharing failed or was cancelled');
-      // Close the PiP window if screen sharing failed
-      if (pipWin && !pipWin.closed) {
-        pipWin.close();
-        setPipWindow(null);
-      }
-      alert('Screen sharing failed or was cancelled.');
-    }
-  };
-
-  // Handler for stopping screen sharing
-  const handleStopGoatedAI = () => {
-    screenShareService.stopCapture();
-    setIsSharing(false);
-    if (pipWindow && !pipWindow.closed) {
-      pipWindow.close();
-      setPipWindow(null);
-    }
-  };
-
-  // Render the floating bar into the PiP window when it opens
-  React.useEffect(() => {
-    console.log('PiP window useEffect triggered, pipWindow:', pipWindow);
-    if (pipWindow && floatingBarRef.current) {
-      console.log('Setting up PiP window content...');
-      // Clear the PiP window and add necessary styles
-      pipWindow.document.body.innerHTML = '';
-      
-      // Add Tailwind CSS to the PiP window
-      const tailwindLink = pipWindow.document.createElement('link');
-      tailwindLink.rel = 'stylesheet';
-      tailwindLink.href = 'http://localhost:8080/src/index.css';
-      pipWindow.document.head.appendChild(tailwindLink);
-      console.log('Added Tailwind CSS to PiP window');
-      
-      // Add base styles
-      const style = pipWindow.document.createElement('style');
-      style.textContent = `
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: system-ui, -apple-system, sans-serif; }
-        .pip-window { background: linear-gradient(135deg, #111827 0%, #1f2937 50%, #000000 100%); }
-        .pip-backdrop-blur { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
-        .pip-glow-border { box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); border: 1px solid rgba(59, 130, 246, 0.2); }
-        .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .7; } }
-      `;
-      pipWindow.document.head.appendChild(style);
-      console.log('Added base styles to PiP window');
-      
-      const mount = pipWindow.document.createElement('div');
-      mount.id = 'pip-root';
-      pipWindow.document.body.appendChild(mount);
-      console.log('Created mount element in PiP window');
-      
-      // Render the FloatingBar component into the PiP window
-      console.log('Importing react-dom/client and rendering FloatingBar...');
-      import('react-dom/client').then(ReactDOMClient => {
-        console.log('ReactDOMClient imported:', ReactDOMClient);
-        const { createRoot } = ReactDOMClient;
-        if (typeof createRoot === 'function') {
-          console.log('Using createRoot...');
-          createRoot(mount).render(<FloatingBar pipMode={true} />);
-        } else {
-          console.error('createRoot not found in react-dom/client');
-        }
-      }).catch(error => {
-        console.error('Failed to import react-dom/client:', error);
-      });
-    }
-  }, [pipWindow]);
-
   if (isLoading) {
     return (
       <Layout>
@@ -462,8 +302,7 @@ const Settings = () => {
 
   return (
     <Layout>
-            {/* Hidden floating bar container for PiP */}
-      <div ref={floatingBarRef} style={{ display: 'none' }} />
+      {/* No hidden ref */}
       {/* Header */}
       <section className="section py-12 relative">
         <div className="container py-8 relative">
@@ -475,7 +314,7 @@ const Settings = () => {
       </section>
       <div className="container py-0">
         <Tabs defaultValue="profile" className="space-y-6">
-                      <TabsList className="grid w-full grid-cols-3 glass-effect border border-white/20">
+          <TabsList className="grid w-full grid-cols-3 glass-effect border border-white/20">
             <TabsTrigger value="profile" className="text-gray-300 data-[state=active]:text-white data-[state=active]:bg-white/10">Profile</TabsTrigger>
             <TabsTrigger value="privacy" className="text-gray-300 data-[state=active]:text-white data-[state=active]:bg-white/10">Privacy</TabsTrigger>
             <TabsTrigger value="billing" className="text-gray-300 data-[state=active]:text-white data-[state=active]:bg-white/10">Billing</TabsTrigger>
@@ -641,6 +480,7 @@ const Settings = () => {
 
         </Tabs>
       </div>
+      <GoatedAIControls />
       <AnalysisDisplay />
     </Layout>
   );

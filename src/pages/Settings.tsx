@@ -12,7 +12,6 @@ import { useUser } from '@/context/UserContext';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/hooks/use-toast';
-import AnalysisDisplay from '@/components/AnalysisDisplay';
 import GoatedAIControls from '@/components/GoatedAIControls';
 
 const Settings = () => {
@@ -481,7 +480,6 @@ const Settings = () => {
         </Tabs>
       </div>
       <GoatedAIControls />
-      <AnalysisDisplay />
     </Layout>
   );
 };

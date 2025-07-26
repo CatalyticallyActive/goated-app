@@ -8,6 +8,7 @@ import { useScreenCapture } from '@/hooks/useScreenCapture';
 import { supabase } from '@/lib/supabaseClient';
 import FloatingBar from './FloatingBar';
 import { useToast } from '@/hooks/use-toast';
+import { AnalysisHistory } from '@/components/AnalysisHistory';
 
 const Analysis = () => {
   const { user: authUser, session } = useAuth();  // Add session for access_token
@@ -90,6 +91,10 @@ const Analysis = () => {
   const handleStartGoatedAI = async () => {
     console.log('Starting GoatedAI...');
     
+    // Store session start time
+    const sessionStartTime = new Date().toISOString();
+    localStorage.setItem('goatedai_session_start', sessionStartTime);
+    
     // First, create the PiP window while we still have user activation
     let pipWin: Window | null = null;
     if ('documentPictureInPicture' in window) {
@@ -125,6 +130,7 @@ const Analysis = () => {
         pipWin.close();
         setPipWindow(null);
       }
+      localStorage.removeItem('goatedai_session_start'); // Clean up session time if failed
       alert('Screen sharing failed or was cancelled.');
     }
   };
@@ -137,6 +143,7 @@ const Analysis = () => {
       pipWindow.close();
       setPipWindow(null);
     }
+    localStorage.removeItem('goatedai_session_start'); // Clean up session time when stopping
   };
 
   // Render the floating bar into the PiP window when it opens
@@ -241,7 +248,7 @@ const Analysis = () => {
       <div ref={floatingBarRef} style={{ display: 'none' }} />
       
       <div className="container mx-auto px-4 py-8">
-        <div className="text-center mb-8">
+        <div className="text-center mt-12 mb-20">
           <Button 
             className="neon-blue px-8 py-3 text-lg" 
             onClick={handleStartGoatedAI} 
@@ -263,7 +270,8 @@ const Analysis = () => {
           )}
         </div>
 
-        {/* Removed unused Activity History Card */}
+        {/* Add Analysis History */}
+        {authUser && <AnalysisHistory userId={authUser.id} />}
       </div>
     </Layout>
   );

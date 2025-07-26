@@ -40,7 +40,7 @@ const SignUp = () => {
   const handleGoogleSignup = () => {
     // Handle Google signup
     console.log('Google signup');
-    navigate('/settings');
+    navigate('/analysis');
   };
 
   const handleEmailSignup = async (e: React.FormEvent) => {
@@ -113,7 +113,7 @@ const SignUp = () => {
       });
 
       console.log('User signed up successfully:', authUser.email);
-      navigate('/settings');
+      navigate('/analysis');
     } catch (error) {
       console.error('Signup error:', error.message, error);
       alert(`Signup failed: ${error instanceof Error ? error.message : 'Unknown error'}`);

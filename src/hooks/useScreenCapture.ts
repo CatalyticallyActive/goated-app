@@ -32,7 +32,7 @@ export function useScreenCapture(stream: MediaStream | null, intervalMs = 10000)
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         const screenshotData = canvas.toDataURL('image/png');
-        console.log('Screenshot captured, size:', canvas.width, 'x', canvas.height, 'data length:', screenshotData.length);
+        console.log('Screenshot captured, dimensions:', canvas.width, 'x', canvas.height);
         setScreenshot(screenshotData);
       } else {
         console.error('Failed to get canvas context');

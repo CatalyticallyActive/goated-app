@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -91,8 +91,8 @@ const Analysis = () => {
   const handleStartGoatedAI = async () => {
     console.log('Starting GoatedAI...');
     
-    // Store session start time
-    const sessionStartTime = new Date().toISOString();
+    // Store session start time with 1 second buffer
+    const sessionStartTime = new Date(Date.now() - 1000).toISOString();
     localStorage.setItem('goatedai_session_start', sessionStartTime);
     
     // First, create the PiP window while we still have user activation
@@ -104,6 +104,7 @@ const Analysis = () => {
           width: 520,
           height: 120,
           initialAspectRatio: 520 / 120,
+          decorations: 'none'
         });
         console.log('PiP window created:', pipWin);
         setPipWindow(pipWin);
@@ -136,7 +137,7 @@ const Analysis = () => {
   };
 
   // Handler for stopping screen sharing
-  const handleStopGoatedAI = () => {
+  const handleStopGoatedAI = useCallback(() => {
     screenShareService.stopCapture();
     setIsSharing(false);
     if (pipWindow && !pipWindow.closed) {
@@ -144,7 +145,7 @@ const Analysis = () => {
       setPipWindow(null);
     }
     localStorage.removeItem('goatedai_session_start'); // Clean up session time when stopping
-  };
+  }, [pipWindow]); // Only recreate if pipWindow changes
 
   // Render the floating bar into the PiP window when it opens
   React.useEffect(() => {
@@ -154,18 +155,35 @@ const Analysis = () => {
       // Clear the PiP window and add necessary styles
       pipWindow.document.body.innerHTML = '';
       
-      // Add Tailwind CSS to the PiP window
-      const tailwindLink = pipWindow.document.createElement('link');
-      tailwindLink.rel = 'stylesheet';
-      tailwindLink.href = 'http://localhost:8080/src/index.css';
-      pipWindow.document.head.appendChild(tailwindLink);
-      console.log('Added Tailwind CSS to PiP window');
+      // Copy all styles from the main window
+      const styles = Array.from(document.styleSheets).map(styleSheet => {
+        try {
+          const cssRules = Array.from(styleSheet.cssRules || styleSheet.rules || [])
+            .map(rule => rule.cssText)
+            .join('\n');
+          return cssRules;
+        } catch (e) {
+          // If we can't access the rules (e.g., for external stylesheets), copy the link instead
+          if (styleSheet.href) {
+            const link = pipWindow.document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = styleSheet.href;
+            pipWindow.document.head.appendChild(link);
+          }
+          return '';
+        }
+      }).filter(Boolean);
+
+      // Combine and inject all accessible styles
+      const combinedStyles = pipWindow.document.createElement('style');
+      combinedStyles.textContent = styles.join('\n');
+      pipWindow.document.head.appendChild(combinedStyles);
       
       // Add base styles
       const style = pipWindow.document.createElement('style');
       style.textContent = `
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: system-ui, -apple-system, sans-serif; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #000; }
         .pip-window { background: linear-gradient(135deg, #111827 0%, #1f2937 50%, #000000 100%); }
         .pip-backdrop-blur { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
         .pip-glow-border { box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); border: 1px solid rgba(59, 130, 246, 0.2); }
@@ -173,29 +191,27 @@ const Analysis = () => {
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .7; } }
       `;
       pipWindow.document.head.appendChild(style);
-      console.log('Added base styles to PiP window');
       
+      // Create and append a root div for React
       const mount = pipWindow.document.createElement('div');
       mount.id = 'pip-root';
+      mount.className = 'w-full h-full bg-background';
       pipWindow.document.body.appendChild(mount);
-      console.log('Created mount element in PiP window');
       
       // Render the FloatingBar component into the PiP window
-      console.log('Importing react-dom/client and rendering FloatingBar...');
       import('react-dom/client').then(ReactDOMClient => {
-        console.log('ReactDOMClient imported:', ReactDOMClient);
         const { createRoot } = ReactDOMClient;
         if (typeof createRoot === 'function') {
-          console.log('Using createRoot...');
-          createRoot(mount).render(<FloatingBar pipMode={true} />);
-        } else {
-          console.error('createRoot not found in react-dom/client');
+          createRoot(mount).render(
+            <FloatingBar 
+              pipMode={true} 
+              onStopSharing={handleStopGoatedAI} 
+            />
+          );
         }
-      }).catch(error => {
-        console.error('Failed to import react-dom/client:', error);
       });
     }
-  }, [pipWindow]);
+  }, [pipWindow, handleStopGoatedAI]);
 
   // Analyze screenshots when they're captured
   useEffect(() => {

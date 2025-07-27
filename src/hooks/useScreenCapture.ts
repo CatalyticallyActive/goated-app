@@ -5,9 +5,23 @@ export function useScreenCapture(stream: MediaStream | null, intervalMs = 10000)
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Function to clean up resources
+  const cleanup = () => {
+    console.log('Cleaning up screen capture');
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.srcObject = null;
+      videoRef.current = null;
+    }
+  };
+
   useEffect(() => {
     if (!stream) {
-      console.log('No stream provided to useScreenCapture');
+      cleanup();
       return;
     }
     
@@ -20,6 +34,13 @@ export function useScreenCapture(stream: MediaStream | null, intervalMs = 10000)
     video.play();
 
     const capture = () => {
+      // Check if any tracks are stopped
+      if (stream.getTracks().some(track => !track.enabled || track.readyState === 'ended')) {
+        console.log('Stream tracks stopped, cleaning up capture');
+        cleanup();
+        return;
+      }
+
       if (!video.videoWidth || !video.videoHeight) {
         console.log('Video not ready yet, skipping capture');
         return;
@@ -39,8 +60,19 @@ export function useScreenCapture(stream: MediaStream | null, intervalMs = 10000)
       }
     };
 
+    // Add track ended event listeners
+    const handleTrackEnded = () => {
+      console.log('Track ended, cleaning up capture');
+      cleanup();
+    };
+    
+    stream.getTracks().forEach(track => {
+      track.addEventListener('ended', handleTrackEnded);
+    });
+
     intervalRef.current = setInterval(capture, intervalMs);
     console.log('Screen capture interval set to:', intervalMs, 'ms');
+    
     // Capture immediately on start
     video.onloadeddata = () => {
       console.log('Video loaded, capturing initial screenshot');
@@ -48,11 +80,11 @@ export function useScreenCapture(stream: MediaStream | null, intervalMs = 10000)
     };
 
     return () => {
-      console.log('Cleaning up screen capture');
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      video.pause();
-      video.srcObject = null;
-      videoRef.current = null;
+      // Remove track event listeners
+      stream.getTracks().forEach(track => {
+        track.removeEventListener('ended', handleTrackEnded);
+      });
+      cleanup();
     };
   }, [stream, intervalMs]);
 

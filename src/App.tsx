@@ -10,9 +10,11 @@ import Settings from "./pages/Settings";
 import Personalize from "./pages/Personalize";
 import Analysis from "./pages/Analysis";
 import FloatingBar from './pages/FloatingBar';
+import PromptTesting from './pages/PromptTesting';
 import { AuthProvider } from "./context/AuthContext";
 import { UserProvider } from "./context/UserContext";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AdminRoute from "./components/AdminRoute";
 
 const NotFound = () => (
   <div className="flex items-center justify-center h-screen">
@@ -48,6 +50,13 @@ const App = () => (
               <Route path="/personalize" element={
                 <ProtectedRoute>
                   <Personalize />
+                </ProtectedRoute>
+              } />
+              <Route path="/prompt-testing" element={
+                <ProtectedRoute>
+                  <AdminRoute>
+                    <PromptTesting />
+                  </AdminRoute>
                 </ProtectedRoute>
               } />
               <Route path="/floating-bar" element={<FloatingBar />} />

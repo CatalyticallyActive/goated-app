@@ -14,7 +14,8 @@ interface UserData {
   psychologicalFlaws: string;
   otherInstructions: string;
   signupCode?: string;
-  // Add other fields from your forms as needed
+  analysisInterval: string;
+  analysisIntervalUnit: string;
 }
 
 // Default state for a new user
@@ -31,6 +32,8 @@ const defaultUserData: UserData = {
   psychologicalFlaws: "",
   otherInstructions: "",
   signupCode: "",
+  analysisInterval: "",
+  analysisIntervalUnit: "minute",
 };
 
 // Create the context

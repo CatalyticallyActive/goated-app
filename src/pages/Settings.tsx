@@ -12,7 +12,6 @@ import { useUser } from '@/context/UserContext';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/hooks/use-toast';
-import GoatedAIControls from '@/components/GoatedAIControls';
 
 const Settings = () => {
   const { user, setUser } = useUser();
@@ -70,6 +69,8 @@ const Settings = () => {
             psychologicalFlaws: settings.psychologicalFlaws || '',
             otherInstructions: settings.otherInstructions || '',
             signupCode: settings.signupCode || '',
+            analysisInterval: settings.analysisInterval || '',
+            analysisIntervalUnit: settings.analysisIntervalUnit || 'minute',
           };
           
           setUser(userData);
@@ -122,7 +123,6 @@ const Settings = () => {
       // Update local context
       setUser({ ...user, ...profileData });
       console.log('Profile updated successfully:', profileData);
-      alert('Profile updated successfully!');
     } catch (error) {
       console.error('Failed to update profile:', error);
       alert('Failed to update profile. Please try again.');
@@ -131,28 +131,43 @@ const Settings = () => {
     }
   };
 
+  const handleProfileInputChange = (field: string, value: string) => {
+    setProfileData(prev => ({ ...prev, [field]: value }));
+  };
+
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      alert('Passwords do not match');
+      toast({
+        title: "Error",
+        description: "Passwords do not match",
+        variant: "destructive"
+      });
       return;
     }
     
     if (!passwordData.currentPassword || !passwordData.newPassword) {
-      alert('Please fill in all password fields');
+      toast({
+        title: "Error",
+        description: "Please fill in all password fields",
+        variant: "destructive"
+      });
       return;
     }
     
     if (passwordData.newPassword.length < 6) {
-      alert('New password must be at least 6 characters long');
+      toast({
+        title: "Error",
+        description: "New password must be at least 6 characters long",
+        variant: "destructive"
+      });
       return;
     }
     
     setIsPasswordSaving(true);
     
     try {
-      // Use Supabase's updateUser method to change password
       const { error } = await supabase.auth.updateUser({
         password: passwordData.newPassword
       });
@@ -163,17 +178,20 @@ const Settings = () => {
 
       console.log('Password changed successfully');
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      alert('Password changed successfully!');
+      toast({
+        title: "Success",
+        description: "Password changed successfully",
+      });
     } catch (error) {
       console.error('Failed to change password:', error);
-      alert(`Failed to change password: ${error instanceof Error ? error.message : 'Please try again.'}`);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : 'Failed to change password. Please try again.',
+        variant: "destructive"
+      });
     } finally {
       setIsPasswordSaving(false);
     }
-  };
-
-  const handleProfileInputChange = (field: string, value: string) => {
-    setProfileData(prev => ({ ...prev, [field]: value }));
   };
 
   const handlePasswordInputChange = (field: string, value: string) => {
@@ -311,7 +329,7 @@ const Settings = () => {
           </div>
         </div>
       </section>
-      <div className="container py-0">
+      <div className="container py-0 pb-12">
         <Tabs defaultValue="profile" className="space-y-6">
           <TabsList className="grid w-full grid-cols-3 glass-effect border border-white/20">
             <TabsTrigger value="profile" className="text-gray-300 data-[state=active]:text-white data-[state=active]:bg-white/10">Profile</TabsTrigger>
@@ -420,26 +438,36 @@ const Settings = () => {
           <TabsContent value="privacy">
             <Card className="glass-effect border border-white/20">
               <CardHeader>
-                <CardTitle className="text-white">Privacy Settings</CardTitle>
+                <CardTitle className="text-white">Privacy</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div>
                   <h3 className="text-lg font-semibold text-white mb-2">Data Collection</h3>
                   <p className="text-gray-400 mb-4">
-                    We collect minimal data to improve your trading assistant experience.
+                    We don't store any of your primary data long-term. See our Privacy Policy for details
                   </p>
-                  <Link to="/privacy" className="text-white hover:text-gray-300 transition-colors underline">
-                    View Privacy Policy
-                  </Link>
+                  <div className="space-y-2">
+                    <Link to="/privacy" className="text-white hover:text-gray-300 transition-colors underline block">
+                      Privacy Policy
+                    </Link>
+                    <Link to="/terms" className="text-white hover:text-gray-300 transition-colors underline block">
+                      Terms of Service
+                    </Link>
+                  </div>
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-white mb-2">Account Deletion</h3>
                   <p className="text-gray-400 mb-4">
                     If you wish to delete your account, please contact support.
                   </p>
-                  <Button className="glass-effect border border-red-500/30 text-red-300 hover:bg-red-500/10 hover:border-red-500/50 transition-all duration-300">
-                    Request Account Deletion
-                  </Button>
+                  <a 
+                    href="mailto:support@goated.trade?subject=Account%20Deletion%20Request"
+                    className="inline-block"
+                  >
+                    <Button className="glass-effect border border-red-500/30 text-red-300 hover:bg-red-500/10 hover:border-red-500/50 transition-all duration-300">
+                      Request Account Deletion
+                    </Button>
+                  </a>
                 </div>
               </CardContent>
             </Card>
@@ -479,7 +507,6 @@ const Settings = () => {
 
         </Tabs>
       </div>
-      <GoatedAIControls />
     </Layout>
   );
 };

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Link, useLocation } from 'react-router-dom';
+import { supabase } from '@/lib/supabaseClient';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -10,12 +11,38 @@ interface AppLayoutProps {
 const AppLayout = ({ children }: AppLayoutProps) => {
   const { user, signOut } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const location = useLocation();
   const isLoggedIn = !!user;
 
   useEffect(() => {
     setIsSidebarOpen(true);
   }, []);
+
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (!user) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+
+        if (error) {
+          console.error('Error checking admin status:', error);
+          return;
+        }
+
+        setIsAdmin(data?.role === 'admin');
+      } catch (error) {
+        console.error('Error checking admin status:', error);
+      }
+    };
+
+    checkAdminStatus();
+  }, [user]);
 
   const handleLogout = async () => {
     await signOut();
@@ -26,6 +53,11 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     { name: 'Personalize', href: '/personalize' },
     { name: 'Profile & Settings', href: '/settings' },
   ];
+
+  // Add Prompt Testing for admin users
+  if (isAdmin) {
+    navigationItems.push({ name: 'Prompt Testing', href: '/prompt-testing' });
+  }
 
   const isActive = (href: string) => {
     return location.pathname === href;

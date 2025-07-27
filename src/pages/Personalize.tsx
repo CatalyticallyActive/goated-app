@@ -9,6 +9,33 @@ import { Textarea } from '@/components/ui/textarea';
 import { useUser } from '@/context/UserContext';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
+import { OtherPreferences } from '@/components/OtherPreferences';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+const convertToSeconds = (value: string, unit: string): number => {
+  const numValue = parseInt(value);
+  if (isNaN(numValue)) return 0;
+  
+  switch (unit) {
+    case 'hour':
+      return numValue * 3600;
+    case 'minute':
+      return numValue * 60;
+    case 'second':
+    default:
+      return numValue;
+  }
+};
+
+const convertFromSeconds = (seconds: number): { value: string, unit: string } => {
+  if (seconds % 3600 === 0 && seconds > 0) {
+    return { value: (seconds / 3600).toString(), unit: 'hour' };
+  } else if (seconds % 60 === 0 && seconds > 0) {
+    return { value: (seconds / 60).toString(), unit: 'minute' };
+  } else {
+    return { value: seconds.toString(), unit: 'second' };
+  }
+};
 
 const Personalize = () => {
   const { user, setUser } = useUser();
@@ -25,6 +52,8 @@ const Personalize = () => {
     dailyLossLimit: user.dailyLossLimit,
     psychologicalFlaws: user.psychologicalFlaws,
     otherInstructions: user.otherInstructions,
+    analysisInterval: user.analysisInterval,
+    analysisIntervalUnit: user.analysisIntervalUnit,
   });
 
   // Load user data from database on component mount
@@ -35,7 +64,7 @@ const Personalize = () => {
       try {
         const { data, error } = await supabase
           .from('users')
-          .select('settings')
+          .select('settings, screenshot_interval')
           .eq('id', authUser.id)
           .single();
 
@@ -44,8 +73,11 @@ const Personalize = () => {
           return;
         }
 
-        if (data?.settings) {
-          const settings = data.settings;
+        if (data) {
+          const settings = data.settings || {};
+          const screenshotInterval = data.screenshot_interval || 0;
+          const { value: analysisInterval, unit: analysisIntervalUnit } = convertFromSeconds(screenshotInterval);
+          
           const userData = {
             name: settings.name || '',
             email: authUser.email || '',
@@ -59,6 +91,8 @@ const Personalize = () => {
             psychologicalFlaws: settings.psychologicalFlaws || '',
             otherInstructions: settings.otherInstructions || '',
             signupCode: settings.signupCode || '',
+            analysisInterval,
+            analysisIntervalUnit,
           };
           
           setUser(userData);
@@ -71,6 +105,8 @@ const Personalize = () => {
             dailyLossLimit: userData.dailyLossLimit,
             psychologicalFlaws: userData.psychologicalFlaws,
             otherInstructions: userData.otherInstructions,
+            analysisInterval,
+            analysisIntervalUnit,
           });
         }
       } catch (error) {
@@ -92,14 +128,20 @@ const Personalize = () => {
         throw new Error('User not authenticated');
       }
 
-      // Update the settings in the database
+      const screenshotInterval = convertToSeconds(
+        tradingPreferences.analysisInterval,
+        tradingPreferences.analysisIntervalUnit
+      );
+
+      // Update both settings and screenshot_interval
       const { error } = await supabase
         .from('users')
         .update({
           settings: {
             ...user,
             ...tradingPreferences,
-          }
+          },
+          screenshot_interval: screenshotInterval
         })
         .eq('id', authUser.id);
 
@@ -110,7 +152,6 @@ const Personalize = () => {
       // Update local context
       setUser({ ...user, ...tradingPreferences });
       console.log('Trading preferences updated successfully:', tradingPreferences);
-      alert('Trading preferences updated successfully!');
     } catch (error) {
       console.error('Failed to update trading preferences:', error);
       alert('Failed to update trading preferences. Please try again.');
@@ -133,6 +174,8 @@ const Personalize = () => {
     dailyLossLimit: user.dailyLossLimit,
     psychologicalFlaws: user.psychologicalFlaws,
     otherInstructions: user.otherInstructions,
+    analysisInterval: user.analysisInterval,
+    analysisIntervalUnit: user.analysisIntervalUnit,
   });
 
   if (isLoading) {
@@ -162,91 +205,48 @@ const Personalize = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleTradingPreferencesUpdate} className="space-y-6">
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <Label className="text-gray-300">Trading Style</Label>
-                  <RadioGroup
-                    value={tradingPreferences.tradingStyle}
-                    onValueChange={(value) => handleTradingInputChange('tradingStyle', value)}
-                    className="mt-2"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="day-trader" id="style1-personalize" />
-                      <Label htmlFor="style1-personalize" className="text-gray-300">Day Trader</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="scalping" id="style2-personalize" />
-                      <Label htmlFor="style2-personalize" className="text-gray-300">Scalping</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="long-term" id="style3-personalize" />
-                      <Label htmlFor="style3-personalize" className="text-gray-300">Long Term</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-                <div>
-                  <Label className="text-gray-300">Usual Timeframes</Label>
-                  <RadioGroup
-                    value={tradingPreferences.timeframes}
-                    onValueChange={(value) => handleTradingInputChange('timeframes', value)}
-                    className="mt-2"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="15min" id="time1-personalize" />
-                      <Label htmlFor="time1-personalize" className="text-gray-300">15 minutes</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="1h" id="time2-personalize" />
-                      <Label htmlFor="time2-personalize" className="text-gray-300">1 hour</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="1d" id="time3-personalize" />
-                      <Label htmlFor="time3-personalize" className="text-gray-300">1 day</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="1w" id="time4-personalize" />
-                      <Label htmlFor="time4-personalize" className="text-gray-300">1 week</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="1m" id="time5-personalize" />
-                      <Label htmlFor="time5-personalize" className="text-gray-300">1 month</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
+              <div>
+                <Label className="text-gray-300">Trading Style</Label>
+                <RadioGroup
+                  value={tradingPreferences.tradingStyle}
+                  onValueChange={(value) => handleTradingInputChange('tradingStyle', value)}
+                  className="mt-2"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="day-trader" id="style1-personalize" />
+                    <Label htmlFor="style1-personalize" className="text-gray-300">Day Trader</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="scalping" id="style2-personalize" />
+                    <Label htmlFor="style2-personalize" className="text-gray-300">Scalping</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="long-term" id="style3-personalize" />
+                    <Label htmlFor="style3-personalize" className="text-gray-300">Long Term</Label>
+                  </div>
+                </RadioGroup>
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <Label htmlFor="portfolio-personalize" className="text-gray-300">Portfolio Size</Label>
-                  <Input
-                    id="portfolio-personalize"
-                    value={tradingPreferences.portfolioSize}
-                    onChange={(e) => handleTradingInputChange('portfolioSize', e.target.value)}
-                    className="bg-white/5 border-white/20 text-white focus:border-white/40"
-                    placeholder="e.g., $10,000"
-                  />
-                </div>
-                <div>
-                  <Label className="text-gray-300">Risk Tolerance</Label>
-                  <RadioGroup
-                    value={tradingPreferences.riskTolerance}
-                    onValueChange={(value) => handleTradingInputChange('riskTolerance', value)}
-                    className="mt-2"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="low" id="risk1-personalize" />
-                      <Label htmlFor="risk1-personalize" className="text-gray-300">Low</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="medium" id="risk2-personalize" />
-                      <Label htmlFor="risk2-personalize" className="text-gray-300">Medium</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="high" id="risk3-personalize" />
-                      <Label htmlFor="risk3-personalize" className="text-gray-300">High</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
+              <div>
+                <Label className="text-gray-300">Risk Tolerance</Label>
+                <RadioGroup
+                  value={tradingPreferences.riskTolerance}
+                  onValueChange={(value) => handleTradingInputChange('riskTolerance', value)}
+                  className="mt-2"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="low" id="risk1-personalize" />
+                    <Label htmlFor="risk1-personalize" className="text-gray-300">Low</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="medium" id="risk2-personalize" />
+                    <Label htmlFor="risk2-personalize" className="text-gray-300">Medium</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="high" id="risk3-personalize" />
+                    <Label htmlFor="risk3-personalize" className="text-gray-300">High</Label>
+                  </div>
+                </RadioGroup>
               </div>
 
               <div className="grid grid-cols-2 gap-6">
@@ -273,16 +273,34 @@ const Personalize = () => {
                 </div>
               </div>
 
-              <div>
-                <Label htmlFor="flaws-personalize" className="text-gray-300">Pre-identified Trading Psychological Flaws</Label>
-                <Textarea
-                  id="flaws-personalize"
-                  value={tradingPreferences.psychologicalFlaws}
-                  onChange={(e) => handleTradingInputChange('psychologicalFlaws', e.target.value)}
-                  className="bg-white/5 border-white/20 text-white focus:border-white/40"
-                  rows={3}
-                  placeholder="e.g., I tend to hold losing positions too long, I overtrade when bored..."
-                />
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <Label htmlFor="analysisInterval-personalize" className="text-gray-300">Time Between Analyses</Label>
+                  <Input
+                    id="analysisInterval-personalize"
+                    type="number"
+                    value={tradingPreferences.analysisInterval}
+                    onChange={(e) => handleTradingInputChange('analysisInterval', e.target.value)}
+                    className="bg-white/5 border-white/20 text-white focus:border-white/40"
+                    placeholder="e.g., 5"
+                  />
+                </div>
+                <div>
+                  <Label className="text-gray-300">Interval Unit</Label>
+                  <Select
+                    value={tradingPreferences.analysisIntervalUnit}
+                    onValueChange={(value) => handleTradingInputChange('analysisIntervalUnit', value)}
+                  >
+                    <SelectTrigger className="bg-white/5 border-white/20 text-white focus:border-white/40">
+                      <SelectValue placeholder="Select unit" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="second">Second</SelectItem>
+                      <SelectItem value="minute">Minute</SelectItem>
+                      <SelectItem value="hour">Hour</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div>
@@ -299,12 +317,21 @@ const Personalize = () => {
 
               <div className="flex justify-end pt-6">
                 <Button type="submit" className="neon-blue" disabled={!hasTradingChanges || isSaving}>
-                  {isSaving ? 'Saving...' : 'Save Preferences'}
+                  {isSaving ? 'Saving...' : 'Save Changes'}
                 </Button>
               </div>
             </form>
           </CardContent>
         </Card>
+
+        <OtherPreferences
+          preferences={{
+            timeframes: tradingPreferences.timeframes,
+            portfolioSize: tradingPreferences.portfolioSize,
+            psychologicalFlaws: tradingPreferences.psychologicalFlaws,
+          }}
+          onPreferenceChange={handleTradingInputChange}
+        />
       </div>
     </Layout>
   );

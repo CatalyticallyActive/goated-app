@@ -1,3 +1,5 @@
+import { debug } from '@/lib/utils';
+
 const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 
@@ -42,15 +44,17 @@ const SYSTEM_PROMPT = `You will receive a screenshot from a trading platform.
 Your only job is to look at the screenshot and return the single strongest trading insight in the correct format.`;
 
 export async function getVisionInsight(base64Image: string): Promise<string | null> {
+  const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
+
   if (!OPENAI_API_KEY) {
-    console.error('OpenAI API key not set in VITE_OPENAI_API_KEY');
-    throw new Error('OpenAI API key not set in VITE_OPENAI_API_KEY');
+    debug.error('OpenAI API key not set in VITE_OPENAI_API_KEY');
+    return null;
   }
-  
-  console.log('Starting OpenAI Vision analysis...');
-  console.log('API Key available:', !!OPENAI_API_KEY);
-  console.log('Image data length:', base64Image.length);
-  
+
+  debug.log('Starting OpenAI Vision analysis...');
+  debug.log('API Key available:', !!OPENAI_API_KEY);
+  debug.log('Image data length:', base64Image.length);
+
   const messages = [
     { role: 'system', content: SYSTEM_PROMPT },
     {
@@ -69,16 +73,16 @@ export async function getVisionInsight(base64Image: string): Promise<string | nu
       ]
     }
   ];
-  
+
   const body = {
     model: 'gpt-4o',
     messages,
     max_tokens: 256,
     temperature: 0.2
   };
-  
+
   try {
-    console.log('Sending request to OpenAI...');
+    debug.log('Sending request to OpenAI...');
     const res = await fetch(OPENAI_API_URL, {
       method: 'POST',
       headers: {
@@ -87,24 +91,24 @@ export async function getVisionInsight(base64Image: string): Promise<string | nu
       },
       body: JSON.stringify(body)
     });
-    
-    console.log('OpenAI response status:', res.status);
-    
+
+    debug.log('OpenAI response status:', res.status);
+
     if (!res.ok) {
       const errorText = await res.text();
-      console.error('OpenAI API error response:', errorText);
-      throw new Error(`OpenAI API error: ${res.status} - ${errorText}`);
+      debug.error('OpenAI API error response:', errorText);
+      throw new Error(`OpenAI API error: ${res.status} ${errorText}`);
     }
-    
+
     const data = await res.json();
-    console.log('OpenAI response data:', data);
-    
+    debug.log('OpenAI response data:', data);
+
     const insight = data.choices?.[0]?.message?.content;
-    console.log('Extracted insight:', insight);
-    
+    debug.log('Extracted insight:', insight);
+
     return insight || null;
   } catch (err) {
-    console.error('OpenAI Vision API error:', err);
+    debug.error('OpenAI Vision API error:', err);
     return null;
   }
 } 

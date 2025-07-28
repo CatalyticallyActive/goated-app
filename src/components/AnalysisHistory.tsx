@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/pagination";
 import { supabase } from '@/lib/supabaseClient';
 import { format } from 'date-fns';
+import { debug } from '@/lib/utils';
 
 interface Analysis {
   id: string;
@@ -53,10 +54,13 @@ export const AnalysisHistory: React.FC<AnalysisHistoryProps> = ({ userId }) => {
         .order('analysis_timestamp', { ascending: false })
         .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1);
 
-      if (error) throw error;
+      if (error) {
+        debug.error('Error fetching analyses:', error);
+        throw error;
+      }
       setAnalyses(data || []);
     } catch (error) {
-      console.error('Error fetching analyses:', error);
+      debug.error('Error fetching analyses:', error);
     } finally {
       setIsLoading(false);
     }

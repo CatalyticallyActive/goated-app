@@ -12,6 +12,7 @@ import { useUser } from '@/context/UserContext';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/hooks/use-toast';
+import { debug } from '@/lib/utils';
 
 const Settings = () => {
   const { user, setUser } = useUser();
@@ -49,7 +50,7 @@ const Settings = () => {
           .single();
 
         if (error) {
-          console.error('Error loading user data:', error);
+          debug.error('Error loading user data:', error);
           return;
         }
 
@@ -76,7 +77,7 @@ const Settings = () => {
           setUser(userData);
         }
       } catch (error) {
-        console.error('Failed to load user data:', error);
+        debug.error('Failed to load user data:', error);
       } finally {
         setIsLoading(false);
       }
@@ -122,9 +123,9 @@ const Settings = () => {
 
       // Update local context
       setUser({ ...user, ...profileData });
-      console.log('Profile updated successfully:', profileData);
+      debug.log('Profile updated successfully:', profileData);
     } catch (error) {
-      console.error('Failed to update profile:', error);
+      debug.error('Failed to update profile:', error);
       alert('Failed to update profile. Please try again.');
     } finally {
       setIsProfileSaving(false);
@@ -176,14 +177,14 @@ const Settings = () => {
         throw error;
       }
 
-      console.log('Password changed successfully');
+      debug.log('Password changed successfully');
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
       toast({
         title: "Success",
         description: "Password changed successfully",
       });
     } catch (error) {
-      console.error('Failed to change password:', error);
+      debug.error('Failed to change password:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : 'Failed to change password. Please try again.',
@@ -222,7 +223,7 @@ const Settings = () => {
       // Convert base64 to binary data for upload
       const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
       
-      console.log('Attempting to upload screenshot to temp-screenshots bucket...');
+      debug.log('Attempting to upload screenshot to temp-screenshots bucket...');
       
       // Upload to temp-screenshots bucket
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -233,31 +234,31 @@ const Settings = () => {
         });
 
       if (uploadError) {
-        console.error('Error uploading screenshot to storage:', uploadError);
+        debug.error('Error uploading screenshot to storage:', uploadError);
         
         // Check if it's a bucket not found error
         if (uploadError.message?.includes('not found') || uploadError.message?.includes('400')) {
-          console.error('The temp-screenshots bucket does not exist. Please create it in your Supabase dashboard.');
+          debug.error('The temp-screenshots bucket does not exist. Please create it in your Supabase dashboard.');
           throw new Error('Storage bucket not configured. Please contact support.');
         }
         
         // Check if it's an RLS policy error
         if (uploadError.message?.includes('row-level security') || uploadError.message?.includes('403')) {
-          console.error('RLS policy is blocking the upload. Please check bucket policies.');
+          debug.error('RLS policy is blocking the upload. Please check bucket policies.');
           throw new Error('Access denied. Please check your permissions.');
         }
         
         throw uploadError;
       }
 
-      console.log('Screenshot uploaded successfully:', uploadData);
+      debug.log('Screenshot uploaded successfully:', uploadData);
 
       // Get public URL for the uploaded file
       const { data: urlData } = supabase.storage
         .from('temp-screenshots')
         .getPublicUrl(filename);
 
-      console.log('Public URL generated:', urlData.publicUrl);
+      debug.log('Public URL generated:', urlData.publicUrl);
 
       // Try to call RPC function to insert database record
       let dbData = null;
@@ -268,7 +269,7 @@ const Settings = () => {
         });
 
         if (rpcError) {
-          console.error('RPC function not found, trying direct insert:', rpcError);
+          debug.error('RPC function not found, trying direct insert:', rpcError);
           
           // Fallback: Direct insert into temp_screenshots table
           const { data: directData, error: directError } = await supabase
@@ -281,25 +282,25 @@ const Settings = () => {
             .single();
 
           if (directError) {
-            console.error('Direct insert also failed:', directError);
+            debug.error('Direct insert also failed:', directError);
             throw directError;
           }
 
           dbData = directData;
-          console.log('Screenshot saved via direct insert:', dbData);
+          debug.log('Screenshot saved via direct insert:', dbData);
         } else {
           dbData = rpcData;
-          console.log('Screenshot saved via RPC:', dbData);
+          debug.log('Screenshot saved via RPC:', dbData);
         }
       } catch (error) {
-        console.error('All database insert methods failed:', error);
+        debug.error('All database insert methods failed:', error);
         // Don't throw here - we still want to continue with AI analysis
-        console.log('Continuing with AI analysis despite database insert failure');
+        debug.log('Continuing with AI analysis despite database insert failure');
       }
 
       return dbData;
     } catch (error) {
-      console.error('Failed to save screenshot to Supabase:', error);
+      debug.error('Failed to save screenshot to Supabase:', error);
       throw error;
     }
   };

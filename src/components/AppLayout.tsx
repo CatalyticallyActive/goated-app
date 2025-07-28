@@ -3,6 +3,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Link, useLocation } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
+import { debug } from '@/lib/utils';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -31,13 +32,13 @@ const AppLayout = ({ children }: AppLayoutProps) => {
           .single();
 
         if (error) {
-          console.error('Error checking admin status:', error);
+          debug.error('Error checking admin status:', error);
           return;
         }
 
         setIsAdmin(data?.role === 'admin');
       } catch (error) {
-        console.error('Error checking admin status:', error);
+        debug.error('Error checking admin status:', error);
       }
     };
 

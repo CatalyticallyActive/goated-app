@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabaseClient';
 import FloatingBar from '@/pages/FloatingBar';
+import { debug } from '@/lib/utils';
 
 const GoatedAIControls = () => {
   const { user: authUser, session } = useAuth();
@@ -23,12 +24,12 @@ const GoatedAIControls = () => {
       const timestamp = Date.now();
       const filename = `${userId}/${timestamp}.png`;
       const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-      console.log('Attempting to upload screenshot to temp-screenshots bucket...');
+      debug.log('Attempting to upload screenshot to temp-screenshots bucket...');
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('temp-screenshots')
         .upload(filename, binaryData, { contentType: 'image/png', upsert: false });
       if (uploadError) {
-        console.error('Error uploading screenshot to storage:', uploadError);
+        debug.error('Error uploading screenshot to storage:', uploadError);
         if (uploadError.message?.includes('not found') || uploadError.message?.includes('400')) {
           throw new Error('Storage bucket not configured. Please contact support.');
         }
@@ -37,9 +38,9 @@ const GoatedAIControls = () => {
         }
         throw uploadError;
       }
-      console.log('Screenshot uploaded successfully:', uploadData);
+      debug.log('Screenshot uploaded successfully:', uploadData);
       const { data: urlData } = supabase.storage.from('temp-screenshots').getPublicUrl(filename);
-      console.log('Public URL generated:', urlData.publicUrl);
+      debug.log('Public URL generated:', urlData.publicUrl);
       let dbData = null;
       try {
         const { data: rpcData, error: rpcError } = await supabase.rpc('insert_screenshot', {
@@ -47,26 +48,59 @@ const GoatedAIControls = () => {
           p_user_id: userId
         });
         if (rpcError) {
-          console.error('RPC function not found, trying direct insert:', rpcError);
+          debug.error('RPC function not found, trying direct insert:', rpcError);
           const { data: directData, error: directError } = await supabase.from('temp_screenshots').insert({
             screenshot_url: urlData.publicUrl,
             status: 'received'
           }).select().single();
           if (directError) throw directError;
           dbData = directData;
-          console.log('Screenshot saved via direct insert:', dbData);
+          debug.log('Screenshot saved via direct insert:', dbData);
         } else {
           dbData = rpcData;
-          console.log('Screenshot saved via RPC:', dbData);
+          debug.log('Screenshot saved via RPC:', dbData);
         }
       } catch (error) {
-        console.error('All database insert methods failed:', error);
-        console.log('Continuing with AI analysis despite database insert failure');
+        debug.error('All database insert methods failed:', error);
+        debug.log('Continuing with AI analysis despite database insert failure');
       }
       return dbData;
     } catch (error) {
-      console.error('Failed to save screenshot to Supabase:', error);
+      debug.error('Failed to save screenshot to Supabase:', error);
       throw error;
+    }
+  };
+
+  const processScreenshot = async (screenshot: string) => {
+    try {
+      debug.log('Screenshot captured, starting analysis...');
+      debug.log('Screenshot data length:', screenshot.length);
+
+      const screenshotData = await saveScreenshotToSupabase(screenshot, authUser?.id);
+      if (!screenshotData) {
+        debug.error('No screenshot ID returned from upload');
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('analyze-screenshot', {
+        body: {
+          userId: authUser?.id,
+          screenshot_id: screenshotData.id
+        }
+      });
+
+      if (error) {
+        debug.error('Failed to invoke analyze-screenshot:', error);
+        toast({
+          title: 'Analysis Failed',
+          description: 'Unable to analyze screenshot. Please try again.',
+          variant: 'destructive'
+        });
+      } else {
+        debug.log('Analysis response:', data);
+      }
+    } catch (error) {
+      debug.error('Error processing screenshot:', error);
     }
   };
 
@@ -74,39 +108,7 @@ const GoatedAIControls = () => {
     let cancelled = false;
     async function analyze() {
       if (screenshot) {
-        console.log('Screenshot captured, starting analysis...');
-        console.log('Screenshot data length:', screenshot.length);
-        
-        try {
-          if (authUser?.id) {
-            const dbData = await saveScreenshotToSupabase(screenshot, authUser.id);
-            
-            if (dbData?.id) {
-              const screenshotId = dbData.id;
-              
-              const { data, error } = await supabase.functions.invoke('analyze-screenshot', {
-                body: { userId: authUser.id, screenshot_id: screenshotId },
-                headers: { Authorization: `Bearer ${session?.access_token}` },
-                method: 'POST'
-              });
-              
-              if (error) {
-                console.error('Failed to invoke analyze-screenshot:', error);
-                toast({
-                  title: 'Analysis Failed',
-                  description: 'Unable to analyze screenshot. Please try again.',
-                  variant: 'destructive'
-                });
-              } else {
-                console.log('Analysis response:', data);
-              }
-            } else {
-              console.error('No screenshot ID returned from upload');
-            }
-          }
-        } catch (error) {
-          console.error('Error processing screenshot:', error);
-        }
+        await processScreenshot(screenshot);
       }
     }
     analyze();
@@ -115,15 +117,15 @@ const GoatedAIControls = () => {
 
   // Full handleStartGoatedAI
   const handleStartGoatedAI = async () => {
-    console.log('Starting GoatedAI...');
+    debug.log('Starting GoatedAI...');
     let pipWin: Window | null = null;
     if ('documentPictureInPicture' in window) {
       try {
         pipWin = await window.documentPictureInPicture!.requestWindow({ width: 520, height: 120 });
-        console.log('PiP window created:', pipWin);
+        debug.log('PiP window created:', pipWin);
         setPipWindow(pipWin);
       } catch (error) {
-        console.error('Failed to create PiP window:', error);
+        debug.error('Failed to create PiP window:', error);
         toast({ title: 'Error', description: 'Failed to create PiP window.', variant: 'destructive' });
         return;
       }
@@ -167,14 +169,14 @@ const GoatedAIControls = () => {
       pipWindow.document.body.appendChild(mount);
       import('react-dom/client').then(ReactDOMClient => {
         ReactDOMClient.createRoot(mount).render(<FloatingBar pipMode={true} />);
-      }).catch(error => console.error('Failed to render PiP:', error));
+      }).catch(error => debug.error('Failed to render PiP:', error));
     }
   }, [pipWindow]);
 
   return (
     <div className="py-8">
       <h2 className="text-2xl font-bold text-white mb-4">Goated AI Controls</h2>
-      <Button 
+      <Button
         onClick={isSharing ? handleStopGoatedAI : handleStartGoatedAI}
         className="neon-blue"
       >

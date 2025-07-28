@@ -11,6 +11,8 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import { OtherPreferences } from '@/components/OtherPreferences';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { debug } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 const convertToSeconds = (value: string, unit: string): number => {
   const numValue = parseInt(value);
@@ -42,6 +44,7 @@ const Personalize = () => {
   const { user: authUser } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const { toast } = useToast();
 
   const [tradingPreferences, setTradingPreferences] = useState({
     tradingStyle: user.tradingStyle,
@@ -69,7 +72,7 @@ const Personalize = () => {
           .single();
 
         if (error) {
-          console.error('Error loading user data:', error);
+          debug.error('Error loading user data:', error);
           return;
         }
 
@@ -110,7 +113,7 @@ const Personalize = () => {
           });
         }
       } catch (error) {
-        console.error('Failed to load user data:', error);
+        debug.error('Failed to load user data:', error);
       } finally {
         setIsLoading(false);
       }
@@ -151,10 +154,14 @@ const Personalize = () => {
 
       // Update local context
       setUser({ ...user, ...tradingPreferences });
-      console.log('Trading preferences updated successfully:', tradingPreferences);
+      debug.log('Trading preferences updated successfully:', tradingPreferences);
     } catch (error) {
-      console.error('Failed to update trading preferences:', error);
-      alert('Failed to update trading preferences. Please try again.');
+      debug.error('Failed to update trading preferences:', error);
+      toast({
+        title: "Update Failed",
+        description: "Failed to update trading preferences. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setIsSaving(false);
     }

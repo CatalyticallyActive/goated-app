@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
+import { debug } from '@/lib/utils';
 
 interface AdminRouteProps {
   children: React.ReactNode;
@@ -28,13 +29,13 @@ const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
           .single();
 
         if (error) {
-          console.error('Error checking admin status:', error);
+          debug.error('Error checking admin status:', error);
           setIsAdmin(false);
         } else {
           setIsAdmin(data?.role === 'admin');
         }
       } catch (error) {
-        console.error('Error checking admin status:', error);
+        debug.error('Error checking admin status:', error);
         setIsAdmin(false);
       } finally {
         setIsLoading(false);

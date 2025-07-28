@@ -9,6 +9,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Link, useNavigate } from 'react-router-dom';
 import { useUser } from '@/context/UserContext';
 import { supabase } from '@/lib/supabaseClient';
+import { debug } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 const SignUp = () => {
   const { user, setUser } = useUser();
@@ -17,6 +19,7 @@ const SignUp = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [signupCode, setSignupCode] = useState('');
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -37,9 +40,8 @@ const SignUp = () => {
     if (step > 1) setStep(step - 1);
   };
 
-  const handleGoogleSignup = () => {
-    // Handle Google signup
-    console.log('Google signup');
+  const handleGoogleSignup = async () => {
+    debug.log('Google signup');
     navigate('/analysis');
   };
 
@@ -48,22 +50,34 @@ const SignUp = () => {
     
     // Client-side validation
     if (password !== confirmPassword) {
-      alert('Passwords do not match');
+      toast({
+        title: "Validation Error",
+        description: "Passwords do not match",
+        variant: "destructive"
+      });
       return;
     }
     
     if (!user.email || !password) {
-      alert('Please enter both email and password');
+      toast({
+        title: "Validation Error",
+        description: "Please enter both email and password",
+        variant: "destructive"
+      });
       return;
     }
     
     if (password.length < 8) {
-      alert('Password must be at least 8 characters');
+      toast({
+        title: "Validation Error",
+        description: "Password must be at least 8 characters",
+        variant: "destructive"
+      });
       return;
     }
 
     try {
-      console.log('Attempting signup with:', { email: user.email, password, userData: user });
+      debug.log('Attempting signup with:', { email: user.email, password, userData: user });
 
       // Create auth user - trigger will handle database operations
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -87,7 +101,7 @@ const SignUp = () => {
       });
 
       if (authError) {
-        console.error('Auth error:', authError);
+        debug.error('Auth error:', authError);
         throw new Error(authError.message);
       }
 
@@ -98,25 +112,31 @@ const SignUp = () => {
 
       // Clear UserContext
       setUser({
-        name: "",
-        email: "",
-        position: "",
-        tradingStyle: "",
-        timeframes: "",
-        portfolioSize: "",
-        riskTolerance: "",
-        maxPositions: "",
-        dailyLossLimit: "",
-        psychologicalFlaws: "",
-        otherInstructions: "",
-        signupCode: "",
+        name: '',
+        email: authUser.email || '',
+        position: '',
+        tradingStyle: '',
+        timeframes: '',
+        portfolioSize: '',
+        riskTolerance: '',
+        maxPositions: '',
+        dailyLossLimit: '',
+        psychologicalFlaws: '',
+        otherInstructions: '',
+        signupCode: '',
+        analysisInterval: '',
+        analysisIntervalUnit: 'minute'
       });
 
-      console.log('User signed up successfully:', authUser.email);
+      debug.log('User signed up successfully:', authUser.email);
       navigate('/analysis');
     } catch (error) {
-      console.error('Signup error:', error.message, error);
-      alert(`Signup failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      debug.error('Signup error:', error.message, error);
+      toast({
+        title: "Signup Failed",
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
+        variant: "destructive"
+      });
     }
   };
 

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
+import { debug } from '@/lib/utils';
 
 interface PromptTest {
   description: string;
@@ -79,31 +80,31 @@ const PromptTesting = () => {
         .from('temp-screenshots')
         .insert({
           screenshot_url: urlData.publicUrl,
-          user_id: user?.id  // Required field
+          user_id: user?.id
         })
         .select()
         .single();
 
       if (insertError) {
-        console.error('Database insert error:', insertError);
+        debug.error('Database insert error:', insertError);
         throw insertError;
       }
 
       return dbData;
     } catch (error) {
-      console.error('Failed to capture/save screenshot:', error);
+      debug.error('Failed to capture/save screenshot:', error);
       throw error;
     }
   };
 
   const runAllTests = async () => {
     setIsRunningTests(true);
-    console.log('Starting to run all tests:', tests);
+    debug.log('Starting to run all tests:', tests);
     
     try {
       // First capture and save the screenshot
       const screenshotRecord = await captureScreenshot();
-      console.log('Screenshot saved:', screenshotRecord);
+      debug.log('Screenshot saved:', screenshotRecord);
 
       // Set all tests to loading state
       const updatedTests = tests.map(test => ({
@@ -149,7 +150,7 @@ const PromptTesting = () => {
 
       setTests(results);
     } catch (error) {
-      console.error('Error running tests:', error);
+      debug.error('Error running tests:', error);
       // Reset loading state and show error
       setTests(tests.map(test => ({
         ...test,

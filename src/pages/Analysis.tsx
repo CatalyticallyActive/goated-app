@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabaseClient';
 import FloatingBar from './FloatingBar';
 import { useToast } from '@/hooks/use-toast';
 import { AnalysisHistory } from '@/components/AnalysisHistory';
+import { debug } from '@/lib/utils';
 
 const Analysis = () => {
   const { user: authUser, session } = useAuth();  // Add session for access_token
@@ -32,7 +33,7 @@ const Analysis = () => {
       const timestamp = Date.now();
       const filePath = `${userId}/${timestamp}.png`;
       
-      console.log('Attempting to upload screenshot to temp-screenshots bucket...');
+      debug.log('Attempting to upload screenshot to temp-screenshots bucket...');
       
       // Upload to temp-screenshots bucket
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -44,18 +45,18 @@ const Analysis = () => {
         });
 
       if (uploadError) {
-        console.error('Error uploading screenshot to storage:', uploadError);
+        debug.error('Error uploading screenshot to storage:', uploadError);
         throw uploadError;
       }
 
-      console.log('Screenshot uploaded successfully:', uploadData);
+      debug.log('Screenshot uploaded successfully:', uploadData);
 
       // Get public URL using the correct path
       const { data: urlData } = supabase.storage
         .from('temp-screenshots')
         .getPublicUrl(uploadData.path);
 
-      console.log('Public URL generated:', urlData.publicUrl);
+      debug.log('Public URL generated:', urlData.publicUrl);
 
       // Insert record with the correct URL
       const { data: dbData, error: dbError } = await supabase
@@ -69,27 +70,27 @@ const Analysis = () => {
         .single();
 
       if (dbError) {
-        console.error('Database insert failed:', dbError);
-        console.error('Error details:', {
-          table: 'temp-screenshots',
-          error: dbError,
-          data: { userId, url: urlData.publicUrl }
+        debug.error('Database insert failed:', dbError);
+        debug.error('Error details:', {
+          message: dbError.message,
+          details: dbError.details,
+          hint: dbError.hint
         });
         throw dbError;
       }
 
-      console.log('Screenshot saved to database:', dbData);
+      debug.log('Screenshot saved to database:', dbData);
       return dbData;
 
     } catch (error) {
-      console.error('Failed to save screenshot to Supabase:', error);
+      debug.error('Failed to save screenshot to Supabase:', error);
       throw error;
     }
   };
 
   // Handler for Start GoatedAI button
   const handleStartGoatedAI = async () => {
-    console.log('Starting GoatedAI...');
+    debug.log('Starting GoatedAI...');
     
     // Store session start time with 1 second buffer
     const sessionStartTime = new Date(Date.now() - 1000).toISOString();
@@ -98,41 +99,52 @@ const Analysis = () => {
     // First, create the PiP window while we still have user activation
     let pipWin: Window | null = null;
     if ('documentPictureInPicture' in window) {
-      console.log('Document PiP API is supported, creating PiP window...');
+      debug.log('Document PiP API is supported, creating PiP window...');
       try {
         pipWin = await window.documentPictureInPicture!.requestWindow({
           width: 520,
           height: 120,
-          initialAspectRatio: 520 / 120,
-          decorations: 'none'
+          initialAspectRatio: 520 / 120
         });
-        console.log('PiP window created:', pipWin);
+        debug.log('PiP window created:', pipWin);
         setPipWindow(pipWin);
       } catch (error) {
-        console.error('Failed to create PiP window:', error);
-        alert('Failed to create Picture-in-Picture window. Please try again.');
+        debug.error('Failed to create PiP window:', error);
+        toast({
+          title: "Feature Error",
+          description: "Failed to create Picture-in-Picture window. Please try again.",
+          variant: "destructive"
+        });
         return;
       }
     } else {
-      console.log('Document PiP API not supported');
-      alert('Your browser does not support Document Picture-in-Picture.');
+      debug.log('Document PiP API not supported');
+      toast({
+        title: "Browser Support",
+        description: "Your browser does not support Document Picture-in-Picture.",
+        variant: "destructive"
+      });
       return;
     }
     
     // Then start screen sharing
     const stream = await screenShareService.startCapture();
     if (stream) {
-      console.log('Screen sharing started successfully');
+      debug.log('Screen sharing started successfully');
       setIsSharing(true);
     } else {
-      console.log('Screen sharing failed or was cancelled');
+      debug.log('Screen sharing failed or was cancelled');
       // Close the PiP window if screen sharing failed
       if (pipWin && !pipWin.closed) {
         pipWin.close();
         setPipWindow(null);
       }
       localStorage.removeItem('goatedai_session_start'); // Clean up session time if failed
-      alert('Screen sharing failed or was cancelled.');
+      toast({
+        title: "Screen Sharing",
+        description: "Screen sharing failed or was cancelled.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -149,9 +161,9 @@ const Analysis = () => {
 
   // Render the floating bar into the PiP window when it opens
   React.useEffect(() => {
-    console.log('PiP window useEffect triggered, pipWindow:', pipWindow);
+    debug.log('PiP window useEffect triggered, pipWindow:', pipWindow);
     if (pipWindow && floatingBarRef.current) {
-      console.log('Setting up PiP window content...');
+      debug.log('Setting up PiP window content...');
       // Clear the PiP window and add necessary styles
       pipWindow.document.body.innerHTML = '';
       
@@ -218,8 +230,8 @@ const Analysis = () => {
     let cancelled = false;
     async function analyze() {
       if (screenshot) {
-        console.log('Screenshot captured, starting analysis...');
-        console.log('Screenshot data length:', screenshot.length);
+        debug.log('Screenshot captured, starting analysis...');
+        debug.log('Screenshot data length:', screenshot.length);
         
         try {
           if (authUser?.id) {
@@ -236,21 +248,21 @@ const Analysis = () => {
               });
               
               if (error) {
-                console.error('Failed to invoke analyze-screenshot:', error);
+                debug.error('Failed to invoke analyze-screenshot:', error);
                 toast({
                   title: 'Analysis Failed',
                   description: 'Unable to analyze screenshot. Please try again.',
                   variant: 'destructive'
                 });
               } else {
-                console.log('Analysis response:', data);
+                debug.log('Analysis response:', data);
               }
             } else {
-              console.error('No screenshot data returned from upload');
+              debug.error('No screenshot data returned from upload');
             }
           }
         } catch (error) {
-          console.error('Error processing screenshot:', error);
+          debug.error('Error processing screenshot:', error);
         }
       }
     }

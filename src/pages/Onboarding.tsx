@@ -8,6 +8,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '@/context/UserContext';
+import { debug } from '@/lib/utils';
 
 const Onboarding = () => {
   const [step, setStep] = useState(1);
@@ -32,7 +33,7 @@ const Onboarding = () => {
       setStep(step + 1);
     } else {
       // Data is already updated in the context
-      console.log('Final form data:', user);
+      debug.log('Final form data:', user);
       navigate('/settings');
     }
   };

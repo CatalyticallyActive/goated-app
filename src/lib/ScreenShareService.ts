@@ -1,6 +1,8 @@
 // ScreenShareService.ts
 // Service for handling screen/window/tab sharing using the Screen Capture API
 
+import { debug } from '@/lib/utils';
+
 export class ScreenShareService {
   private stream: MediaStream | null = null;
   private pipWindow: Window | null = null;
@@ -11,13 +13,13 @@ export class ScreenShareService {
       return this.stream;
     }
     try {
-      this.stream = await navigator.mediaDevices.getDisplayMedia({
-        video: true
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: false
       });
-      return this.stream;
+      return stream;
     } catch (err) {
-      console.error('Screen sharing failed:', err);
-      this.stream = null;
+      debug.error('Screen sharing failed:', err);
       return null;
     }
   }
@@ -40,7 +42,7 @@ export class ScreenShareService {
     try {
       // Check if Document Picture-in-Picture API is supported
       if (!('documentPictureInPicture' in window)) {
-        console.warn('Document Picture-in-Picture API not supported, falling back to regular popup');
+        debug.warn('Document Picture-in-Picture API not supported, falling back to regular popup');
         return this.openFloatingBarWindow();
       }
 
@@ -57,7 +59,7 @@ export class ScreenShareService {
       this.pipWindow = pipWindow;
       return pipWindow;
     } catch (err) {
-      console.error('Failed to open Picture-in-Picture window:', err);
+      debug.error('Failed to open Picture-in-Picture window:', err);
       // Fallback to regular popup
       return this.openFloatingBarWindow();
     }

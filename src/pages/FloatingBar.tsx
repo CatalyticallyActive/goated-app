@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Button } from '@/components/ui/button';
+import { debug } from '@/lib/utils';
 
 const SCREENSHOT_INTERVAL = 10000; // 10 seconds
 const PROCESSING_BUFFER = 5000;  // 5 seconds buffer for backend processing
@@ -63,7 +64,7 @@ const FloatingBar: React.FC<FloatingBarProps> = ({ pipMode = false, onStopSharin
         .order('analysis_timestamp', { ascending: false });
 
       if (error) {
-        console.error('Error fetching analyses:', error);
+        debug.error('Error fetching analyses:', error);
         return;
       }
 
@@ -80,7 +81,7 @@ const FloatingBar: React.FC<FloatingBarProps> = ({ pipMode = false, onStopSharin
         }
       }
     } catch (error) {
-      console.error('Failed to fetch analyses:', error);
+      debug.error('Failed to fetch analyses:', error);
     }
   };
 

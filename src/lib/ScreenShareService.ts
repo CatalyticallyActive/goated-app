@@ -17,6 +17,19 @@ export class ScreenShareService {
         video: true,
         audio: false
       });
+
+      // Store the stream
+      this.stream = stream;
+
+      // Add track ended listener to clean up
+      stream.getTracks().forEach(track => {
+        track.addEventListener('ended', () => {
+          debug.log('Screen sharing track ended');
+          this.stopCapture();
+        });
+      });
+
+      debug.log('Screen sharing started successfully');
       return stream;
     } catch (err) {
       debug.error('Screen sharing failed:', err);
@@ -27,6 +40,7 @@ export class ScreenShareService {
   // Stop screen sharing
   stopCapture() {
     if (this.stream) {
+      debug.log('Stopping screen sharing');
       this.stream.getTracks().forEach(track => track.stop());
       this.stream = null;
     }
@@ -57,6 +71,13 @@ export class ScreenShareService {
       pipWindow.location.href = '/floating-bar';
       
       this.pipWindow = pipWindow;
+
+      // Add close listener to clean up
+      pipWindow.addEventListener('unload', () => {
+        debug.log('PiP window closed');
+        this.pipWindow = null;
+      });
+
       return pipWindow;
     } catch (err) {
       debug.error('Failed to open Picture-in-Picture window:', err);
@@ -71,12 +92,23 @@ export class ScreenShareService {
     const top = window.screenY + 100;
     const features = `width=${width},height=${height},left=${left},top=${top},resizable,scrollbars`;
     const popup = window.open(url, 'GoatedAI_FloatingBar', features);
+    
+    if (popup) {
+      this.pipWindow = popup;
+      // Add close listener
+      popup.addEventListener('unload', () => {
+        debug.log('Floating bar window closed');
+        this.pipWindow = null;
+      });
+    }
+    
     return popup;
   }
 
   // Close the PiP window
   closePiPWindow() {
     if (this.pipWindow && !this.pipWindow.closed) {
+      debug.log('Closing PiP/floating bar window');
       this.pipWindow.close();
       this.pipWindow = null;
     }

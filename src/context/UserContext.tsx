@@ -16,6 +16,7 @@ interface UserData {
   signupCode?: string;
   analysisInterval: string;
   analysisIntervalUnit: string;
+  screenshot_interval?: number;  // in seconds
 }
 
 // Default state for a new user
@@ -34,6 +35,7 @@ const defaultUserData: UserData = {
   signupCode: "",
   analysisInterval: "",
   analysisIntervalUnit: "minute",
+  screenshot_interval: 10  // default to 10 seconds
 };
 
 // Create the context

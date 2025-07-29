@@ -7,61 +7,57 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-auth',
   'Access-Control-Max-Age': '86400'
 };
-async function processAnalysis(supabase, openai, userId, screenshot_id, imageUrl, promptData, settings) {
-  let promptTemplate = promptData.prompt_template;
-  promptTemplate = promptTemplate.replace('{trading_style}', settings.trading_style || 'N/A').replace('{timeframes}', settings.timeframes || 'N/A').replace('{portfolio_size}', settings.portfolio_size || 'N/A').replace('{risk_tolerance}', settings.risk_tolerance || 'N/A').replace('{max_positions}', settings.max_positions || 'N/A').replace('{daily_loss_limit}', settings.daily_loss_limit || 'N/A').replace('{psychological_flaws}', settings.psychological_flaws || 'N/A').replace('{other_instructions}', settings.other_instructions || 'N/A');
-  // Add more replacements if you expand settings (e.g., .replace('{holding_period}', settings.holding_period || 'N/A'))
+async function processAnalysis(supabase, openai, userId, screenshot_id, imageUrl, prompt) {
+  // Use the prompt directly as provided by the frontend
+  const messages = [
+    {
+      role: 'system',
+      content: prompt
+    },
+    {
+      role: 'user',
+      content: [
+        {
+          type: 'text',
+          text: 'Analyze this trading screenshot:'
+        },
+        {
+          type: 'image_url',
+          image_url: {
+            url: imageUrl
+          }
+        }
+      ]
+    }
+  ];
   const response = await openai.chat.completions.create({
     model: 'gpt-4o',
-    messages: [
-      {
-        role: 'system',
-        content: promptTemplate
-      },
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: 'Analyze this trading screenshot:'
-          },
-          {
-            type: 'image_url',
-            image_url: {
-              url: imageUrl
-            }
-          }
-        ]
-      }
-    ],
-    max_tokens: 1000  // Increased from 300 to 1000
+    messages,
+    max_tokens: 1000
   });
   const rawOutput = response.choices[0].message.content || 'No analysis generated';
-  // Check for the specific refusal messages and skip insertion if found
   const lowerOutput = rawOutput.trim().toLowerCase();
   if (lowerOutput.includes("i'm sorry, i can't help with that") || lowerOutput.includes("i'm sorry, i can't assist with the request")) {
     return {
-      promptId: promptData.id,
+      promptId: null,
       rawOutput,
-      category: "General",
-      insight: "No valid analysis generated",
+      category: 'General',
+      insight: 'No valid analysis generated',
       parsedAnalysis: {
-        category: "General",
-        insight: "No valid analysis generated"
+        category: 'General',
+        insight: 'No valid analysis generated'
       }
     };
   }
-  // Parse category and insight
   const categoryMatch = rawOutput.match(/\[(Chart|Indicators|Orderbook|General)\]/);
   const category = categoryMatch ? categoryMatch[1] : 'General';
   const insight = rawOutput.replace(/\[(Chart|Indicators|Orderbook|General)\]/, '').trim();
-  // Prepare parsed_analysis as JSONB
   const parsedAnalysis = {
     category,
     insight
   };
   return {
-    promptId: promptData.id,
+    promptId: null,
     rawOutput,
     category,
     insight,
@@ -69,9 +65,9 @@ async function processAnalysis(supabase, openai, userId, screenshot_id, imageUrl
   };
 }
 serve(async (req)=>{
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', {
+    return new Response(null, {
+      status: 204,
       headers: corsHeaders
     });
   }
@@ -85,105 +81,77 @@ serve(async (req)=>{
     });
   }
   try {
-    // Parse request body: expects { userId: string, screenshot_id: string (uuid), prompts?: array }
-    const { userId, screenshot_id, prompts } = await req.json();
+    // Log request headers and body for debugging
+    console.log('Received request headers:', Object.fromEntries(req.headers));
+    const bodyText = await req.text();
+    console.log('Raw body received:', bodyText);
+    let body = {};
+    if (bodyText) {
+      try {
+        body = JSON.parse(bodyText);
+      } catch (e) {
+        console.error('Body parse error:', e);
+        throw new Error('Invalid JSON body');
+      }
+    } else {
+      throw new Error('Empty request body');
+    }
+    const { userId, screenshot_id, prompt, prompts } = body;
     if (!userId || !screenshot_id) {
       throw new Error('Missing userId or screenshot_id');
     }
-    // Initialize Supabase client with service role (full access)
-    const supabase = createClient(Deno.env.get('SUPABASE_URL'), Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'));
-    // Fetch user settings and role
-    const { data: userData, error: userError } = await supabase.from('users').select('settings, role').eq('id', userId).single();
-    if (userError || !userData) {
-      throw new Error('User not found or settings missing');
-    }
-    const settings = userData.settings || {};
-    // For batch mode, check if user is admin
+    // Initialize Supabase client with anon key
+    const supabase = createClient(Deno.env.get('SUPABASE_URL'), Deno.env.get('SUPABASE_ANON_KEY'));
+    // Verify JWT
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) throw new Error('Authentication required');
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user) throw new Error('Invalid or missing authentication token');
+    if (userId !== user.id) throw new Error('User ID mismatch');
+    // Check admin role for batch mode
+    const { data: userData, error: userError } = await supabase.from('users').select('role').eq('id', userId).single();
+    if (userError || !userData) throw new Error('User not found');
     if (prompts && userData.role !== 'admin') {
       throw new Error('Batch processing is available to admins only');
     }
-    // Fetch the screenshot URL from temp-screenshots table
+    // Fetch screenshot URL
     const { data: screenshotData, error: screenshotError } = await supabase.from('temp-screenshots').select('screenshot_url').eq('id', screenshot_id).single();
     if (screenshotError || !screenshotData || !screenshotData.screenshot_url) {
       throw new Error('Failed to fetch screenshot URL');
     }
     const imageUrl = screenshotData.screenshot_url;
-    // Prepare prompt list
-    let promptList = [];
-    if (prompts && Array.isArray(prompts) && prompts.length > 0) {
-      // Batch mode: up to 5 prompts
-      if (prompts.length > 5) {
-        throw new Error('Maximum of 5 prompts allowed for batch processing');
-      }
-      for (const p of prompts){
-        if (p.id) {
-          // Fetch by ID from DB
-          const { data: promptData, error: promptError } = await supabase.from('prompts').select('id, prompt_template').eq('id', p.id).single();
-          if (promptError || !promptData) {
-            throw new Error(`Failed to fetch prompt with ID ${p.id}`);
-          }
-          promptList.push(promptData);
-        } else if (p.template) {
-          // Inline template for testing (no DB fetch, id null)
-          promptList.push({
-            id: null,
-            prompt_template: p.template
-          });
-        } else {
-          throw new Error('Invalid prompt format: must provide id or template');
-        }
-      }
-    } else {
-      // Single mode: Fetch user-specific or system prompt
-      let promptId;
-      let promptTemplate;
-      const { data: userPromptData, error: userPromptError } = await supabase.from('prompts').select('id, prompt_template').eq('user_id', userId).order('created_at', {
-        ascending: false
-      }).limit(1).single();
-      if (userPromptData && userPromptData.prompt_template) {
-        promptId = userPromptData.id;
-        promptTemplate = userPromptData.prompt_template;
-      } else {
-        const { data: systemPromptData, error: systemPromptError } = await supabase.from('prompts').select('id, prompt_template').is('user_id', null).order('created_at', {
-          ascending: false
-        }).limit(1).single();
-        if (systemPromptError || !systemPromptData || !systemPromptData.prompt_template) {
-          throw new Error('Failed to fetch prompt template');
-        }
-        promptId = systemPromptData.id;
-        promptTemplate = systemPromptData.prompt_template;
-      }
-      promptList = [
-        {
-          id: promptId,
-          prompt_template: promptTemplate
-        }
-      ];
-    }
     // Initialize OpenAI client
     const openai = new OpenAI({
       apiKey: Deno.env.get('OPENAI_API_KEY')
     });
-    // Process in parallel
-    const results = await Promise.all(promptList.map((p)=>processAnalysis(supabase, openai, userId, screenshot_id, imageUrl, p, settings)));
-    // Batch insert to DB (skip if promptId is null for inline tests)
-    const inserts = results.filter((r)=>r.promptId !== null).map((r)=>({
+    // Process prompts (single or batch)
+    let results;
+    if (prompts && Array.isArray(prompts) && prompts.length > 0) {
+      if (prompts.length > 5) throw new Error('Maximum of 5 prompts allowed');
+      results = await Promise.all(prompts.map((p)=>processAnalysis(supabase, openai, userId, screenshot_id, imageUrl, p)));
+    } else {
+      if (!prompt) throw new Error('Missing prompt for single mode');
+      results = [
+        await processAnalysis(supabase, openai, userId, screenshot_id, imageUrl, prompt)
+      ];
+    }
+    // Store results in llm_analyses (no prompts table updates)
+    const inserts = results.filter((r)=>r.rawOutput !== 'No analysis generated').map((r)=>({
         screenshot_id,
         llm_model_used: 'gpt-4o',
         user_id: userId,
-        prompt_used: promptList.find((p)=>p.id === r.promptId)?.prompt_template,
-        prompt_id: r.promptId,
+        prompt_used: prompts ? prompts[results.indexOf(r)] : prompt,
+        prompt_id: null,
         llm_raw_output: r.rawOutput,
         parsed_analysis: r.parsedAnalysis,
-        confidence_score: null // Set to null for now; can add parsing logic later if needed
+        confidence_score: null
       }));
     if (inserts.length > 0) {
       const { error: insertError } = await supabase.from('llm_analyses').insert(inserts);
-      if (insertError) {
-        throw new Error('Failed to insert analyses: ' + insertError.message);
-      }
+      if (insertError) throw new Error('Failed to insert analyses: ' + insertError.message);
     }
-    // Return results: array for batch, single object for non-batch
+    // Return results
     const responseData = prompts ? results.map((r)=>({
         category: r.category,
         insight: r.insight
@@ -191,7 +159,6 @@ serve(async (req)=>{
       category: results[0].category,
       insight: results[0].insight
     };
-    // Return results with CORS headers
     return new Response(JSON.stringify(responseData), {
       headers: {
         ...corsHeaders,
@@ -200,7 +167,7 @@ serve(async (req)=>{
       status: 200
     });
   } catch (error) {
-    console.error(error);
+    console.error('Error in Edge Function:', error);
     return new Response(JSON.stringify({
       error: error.message
     }), {

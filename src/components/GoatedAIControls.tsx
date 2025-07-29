@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabaseClient';
 import FloatingBar from '@/pages/FloatingBar';
 import { debug } from '@/lib/utils';
+import { PromptSchema } from '@/lib/promptSchema';
 
 const GoatedAIControls = () => {
   const { user: authUser, session } = useAuth();
@@ -82,10 +83,87 @@ const GoatedAIControls = () => {
         return;
       }
 
+      // Fetch user settings for variables
+      const { data: userSettingsData, error: userError } = await supabase
+        .from('users')
+        .select('settings')
+        .eq('id', authUser?.id)
+        .single();
+
+      if (userError) {
+        throw new Error('Failed to fetch user settings');
+      }
+
+      const settings = userSettingsData?.settings || {};
+
+      // Fetch the user's prompt or fall back to system prompt
+      const { data: userPromptData, error: userPromptError } = await supabase
+        .from('prompts')
+        .select('id, prompt_template, version, description, structured_prompt, created_at')
+        .eq('user_id', authUser?.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      let promptData;
+      if (userPromptData && userPromptData.prompt_template) {
+        promptData = userPromptData;
+      } else {
+        const { data: systemPromptData, error: systemPromptError } = await supabase
+          .from('prompts')
+          .select('id, prompt_template, version, description, structured_prompt, created_at')
+          .is('user_id', null)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (systemPromptError || !systemPromptData?.prompt_template) {
+          throw new Error('Failed to fetch system prompt');
+        }
+
+        promptData = {
+          id: systemPromptData.id,
+          prompt_template: systemPromptData.prompt_template,
+          version: systemPromptData.version || 'v1.0',
+          description: systemPromptData.description || 'Initial standard system prompt for all users',
+          structured_prompt: systemPromptData.structured_prompt || null
+        };
+      }
+
+      // Structure the prompt with user variables
+      const structuredPrompt = PromptSchema.parse({
+        prompt_template: promptData.prompt_template,
+        version: promptData.version || undefined,
+        description: promptData.description || undefined,
+        variables: {
+          ...(promptData.structured_prompt?.variables || {}),
+          trading_style: settings.tradingStyle || 'undefined',
+          risk_tolerance: settings.riskTolerance || 'undefined',
+          max_positions: settings.maxPositions || 'undefined',
+          daily_loss_limit: settings.dailyLossLimit || 'undefined',
+          timeframes: settings.timeframes || 'undefined',
+          portfolio_size: settings.portfolioSize || 'undefined'
+        }
+      });
+
+      // Normalize prompt template - convert Windows line endings to Unix
+      const originalPrompt = structuredPrompt.prompt_template || '';
+      const normalizedPrompt = originalPrompt.replace(/\r\n/g, '\n');
+      
+      // Debug logging to verify normalization
+      console.log('GoatedAI - Original contains \\r\\n:', originalPrompt.includes('\r\n'));
+      console.log('GoatedAI - Normalized contains \\r\\n:', normalizedPrompt.includes('\r\n'));
+
       const { data, error } = await supabase.functions.invoke('analyze-screenshot', {
         body: {
           userId: authUser?.id,
-          screenshot_id: screenshotData.id
+          screenshot_id: screenshotData.id,
+          prompts: [{
+            prompt_template: normalizedPrompt,
+            version: structuredPrompt.version,
+            description: structuredPrompt.description,
+            variables: structuredPrompt.variables
+          }]
         }
       });
 

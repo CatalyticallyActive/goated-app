@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { screenShareService } from '@/lib/ScreenShareService';
 import { useScreenCapture } from '@/hooks/useScreenCapture';
 import { useAuth } from '@/context/AuthContext';
+import { useUser } from '@/context/UserContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabaseClient';
 import FloatingBar from '@/pages/FloatingBar';
@@ -11,12 +12,18 @@ import { PromptSchema } from '@/lib/promptSchema';
 
 const GoatedAIControls = () => {
   const { user: authUser, session } = useAuth();
+  const { user: userData } = useUser();
   const { toast } = useToast();
   const [isSharing, setIsSharing] = useState(false);
   const [pipWindow, setPipWindow] = useState<Window | null>(null);
+  const [screenshotCount, setScreenshotCount] = useState(0);
   const floatingBarRef = React.useRef<HTMLDivElement>(null);
+  const pipRootRef = React.useRef<any>(null); // Store React root for PiP window
 
-  const screenshot = useScreenCapture(isSharing ? screenShareService.getStream() : null, 10000);
+  // Configuration for auto-stop (will be user configurable later)
+  const MAX_SCREENSHOTS = 100;
+  const screenshotIntervalMs = (userData?.screenshot_interval || 30) * 1000;
+  const screenshot = useScreenCapture(isSharing ? screenShareService.getStream() : null, screenshotIntervalMs);
 
   // Full saveScreenshotToSupabase
   const saveScreenshotToSupabase = async (screenshotData: string, userId: string) => {
@@ -176,12 +183,83 @@ const GoatedAIControls = () => {
         });
       } else {
         debug.log('Analysis response:', data);
+        
+        // Increment screenshot counter and check for auto-stop
+        const newCount = screenshotCount + 1;
+        setScreenshotCount(newCount);
+        debug.log(`Screenshot ${newCount}/${MAX_SCREENSHOTS} completed`);
+        
+        if (newCount >= MAX_SCREENSHOTS) {
+          debug.log(`Reached maximum screenshots (${MAX_SCREENSHOTS}), auto-stopping GoatedAI...`);
+          handleStopGoatedAI();
+          toast({
+            title: "Auto-Stop",
+            description: `GoatedAI automatically stopped after ${MAX_SCREENSHOTS} screenshots.`,
+            variant: "default"
+          });
+        }
       }
     } catch (error) {
       debug.error('Error processing screenshot:', error);
     }
   };
 
+  // Full handleStartGoatedAI
+  const handleStartGoatedAI = async () => {
+    debug.log('Starting GoatedAI...');
+    let pipWin: Window | null = null;
+    try {
+      debug.log('Creating PiP window using ScreenShareService...');
+      pipWin = await screenShareService.createPiPWindow();
+      debug.log('PiP window created:', pipWin);
+      setPipWindow(pipWin);
+    } catch (error) {
+      debug.error('Failed to create PiP window:', error);
+      const isUnsupportedError = error instanceof Error && error.message.includes('not supported');
+      toast({ 
+        title: isUnsupportedError ? 'Unsupported' : 'Error', 
+        description: isUnsupportedError 
+          ? 'Your browser does not support PiP.' 
+          : 'Failed to create PiP window.', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+    const stream = await screenShareService.startCapture();
+    if (stream) {
+      setIsSharing(true);
+      setScreenshotCount(0); // Reset screenshot counter when starting
+    } else {
+      if (pipWin && !pipWin.closed) pipWin.close();
+      setPipWindow(null);
+      toast({ title: 'Error', description: 'Screen sharing failed or was cancelled.', variant: 'destructive' });
+    }
+  };
+
+  // Full handleStopGoatedAI
+  const handleStopGoatedAI = async () => {
+    debug.log('Stopping GoatedAI...');
+    setIsSharing(false);
+    
+    // Update PiP with isActive=false FIRST to stop polling
+    if (pipRootRef.current && pipWindow && !pipWindow.closed) {
+      debug.log('Stopping PiP polling before closing...');
+      pipRootRef.current.render(<FloatingBar pipMode={true} isActive={false} userId={authUser?.id} />);
+      
+      // Wait a moment for the polling to stop
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    screenShareService.stopCapture();
+    if (pipWindow && !pipWindow.closed) {
+      debug.log('Closing PiP window...');
+      pipWindow.close();
+      setPipWindow(null);
+    }
+    debug.log('GoatedAI stopped completely');
+  };
+
+  // Handle screenshot processing
   useEffect(() => {
     let cancelled = false;
     async function analyze() {
@@ -191,49 +269,12 @@ const GoatedAIControls = () => {
     }
     analyze();
     return () => { cancelled = true; };
-  }, [screenshot, authUser?.id, session, toast]);
+  }, [screenshot, authUser?.id, session, toast, screenshotCount, handleStopGoatedAI]);
 
-  // Full handleStartGoatedAI
-  const handleStartGoatedAI = async () => {
-    debug.log('Starting GoatedAI...');
-    let pipWin: Window | null = null;
-    if ('documentPictureInPicture' in window) {
-      try {
-        pipWin = await window.documentPictureInPicture!.requestWindow({ width: 520, height: 120 });
-        debug.log('PiP window created:', pipWin);
-        setPipWindow(pipWin);
-      } catch (error) {
-        debug.error('Failed to create PiP window:', error);
-        toast({ title: 'Error', description: 'Failed to create PiP window.', variant: 'destructive' });
-        return;
-      }
-    } else {
-      toast({ title: 'Unsupported', description: 'Your browser does not support PiP.', variant: 'destructive' });
-      return;
-    }
-    const stream = await screenShareService.startCapture();
-    if (stream) {
-      setIsSharing(true);
-    } else {
-      if (pipWin && !pipWin.closed) pipWin.close();
-      setPipWindow(null);
-      toast({ title: 'Error', description: 'Screen sharing failed or was cancelled.', variant: 'destructive' });
-    }
-  };
-
-  // Full handleStopGoatedAI
-  const handleStopGoatedAI = () => {
-    screenShareService.stopCapture();
-    setIsSharing(false);
-    if (pipWindow && !pipWindow.closed) {
-      pipWindow.close();
-      setPipWindow(null);
-    }
-  };
-
-  // Full PiP useEffect
+  // Set up PiP window DOM structure once when window opens
   React.useEffect(() => {
-    if (pipWindow && floatingBarRef.current) {
+    if (pipWindow && !pipRootRef.current) {
+      debug.log('Setting up PiP window DOM structure...');
       pipWindow.document.body.innerHTML = '';
       const tailwindLink = pipWindow.document.createElement('link');
       tailwindLink.rel = 'stylesheet';
@@ -245,11 +286,29 @@ const GoatedAIControls = () => {
       const mount = pipWindow.document.createElement('div');
       mount.id = 'pip-root';
       pipWindow.document.body.appendChild(mount);
+      
       import('react-dom/client').then(ReactDOMClient => {
-        ReactDOMClient.createRoot(mount).render(<FloatingBar pipMode={true} />);
+        pipRootRef.current = ReactDOMClient.createRoot(mount);
+        pipRootRef.current.render(<FloatingBar pipMode={true} isActive={isSharing} userId={authUser?.id} />);
       }).catch(error => debug.error('Failed to render PiP:', error));
     }
+
+    // Clean up when PiP window closes
+    return () => {
+      if (!pipWindow) {
+        pipRootRef.current = null;
+        debug.log('PiP window closed, cleaned up React root');
+      }
+    };
   }, [pipWindow]);
+
+  // Update FloatingBar props when isSharing changes
+  React.useEffect(() => {
+    if (pipRootRef.current && pipWindow) {
+      debug.log(`Updating PiP FloatingBar with isActive=${isSharing}`);
+      pipRootRef.current.render(<FloatingBar pipMode={true} isActive={isSharing} userId={authUser?.id} />);
+    }
+  }, [isSharing, authUser?.id, pipWindow]);
 
   return (
     <div className="py-8">

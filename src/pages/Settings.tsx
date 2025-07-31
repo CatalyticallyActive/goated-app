@@ -483,19 +483,20 @@ const Settings = () => {
                 <div className="glass-effect border border-white/20 p-4 rounded-lg">
                   <div className="flex justify-between items-center mb-2">
                     <h3 className="text-lg font-semibold text-white">Current Plan</h3>
-                    <span className="bg-white/10 text-white px-3 py-1 rounded-full text-sm border border-white/20">Pro</span>
+                    <div className="flex items-center gap-2">
+                      <span className="bg-gradient-to-r from-white to-gray-200 text-black px-3 py-1 rounded-full text-sm font-medium shadow-lg">Free Trial</span>
+                      <span className="bg-white/10 text-white px-3 py-1 rounded-full text-sm border border-white/20">Pro</span>
+                    </div>
                   </div>
                   <p className="text-gray-400">$29/month - AI Trading Assistant</p>
                   <p className="text-sm text-gray-500 mt-2">Next billing date: January 15, 2024</p>
                 </div>
                 
-                <div className="space-y-3">
-                  <Link to="/pricing">
-                    <Button className="w-full neon-silver text-black font-medium transition-all duration-300 hover:scale-105">
-                      Upgrade Plan
-                    </Button>
-                  </Link>
-                  <Button className="w-full glass-effect border border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300">
+                <div className="flex gap-3">
+                  <Button disabled className="neon-silver text-black font-medium transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100">
+                    Upgrade Plan
+                  </Button>
+                  <Button disabled className="glass-effect border border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
                     Cancel Subscription
                   </Button>
                 </div>

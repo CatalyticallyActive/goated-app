@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { debug } from '@/lib/utils';
 
-export function useScreenCapture(stream: MediaStream | null, intervalMs = 10000) {
+export function useScreenCapture(stream: MediaStream | null, intervalMs = 30000) {
   const [screenshot, setScreenshot] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);

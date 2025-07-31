@@ -51,22 +51,39 @@ export class ScreenShareService {
     return this.stream;
   }
 
-  // Open floating bar in Picture-in-Picture mode
-  async openFloatingBarPiP(): Promise<Window | null> {
+  // Centralized PiP window configuration
+  static readonly PIP_CONFIG = {
+    width: 250,
+    height: 700,
+    initialAspectRatio: 250 / 700,
+    preferInitialWindowPlacement: false, // Reuse last position if available
+  };
+
+  // Create a Picture-in-Picture window with centralized configuration
+  async createPiPWindow(): Promise<Window | null> {
     try {
       // Check if Document Picture-in-Picture API is supported
       if (!('documentPictureInPicture' in window)) {
-        debug.warn('Document Picture-in-Picture API not supported, falling back to regular popup');
-        return this.openFloatingBarWindow();
+        debug.warn('Document Picture-in-Picture API not supported');
+        throw new Error('Document Picture-in-Picture API not supported');
       }
 
-      // Request Picture-in-Picture
-      const pipWindow = await window.documentPictureInPicture!.requestWindow({
-        width: 520,
-        height: 120,
-        initialAspectRatio: 520 / 120,
-      });
+      // Request Picture-in-Picture with centralized config
+      const pipWindow = await window.documentPictureInPicture!.requestWindow(ScreenShareService.PIP_CONFIG);
+      
+      debug.log('PiP window created successfully');
+      return pipWindow;
+    } catch (err) {
+      debug.error('Failed to create Picture-in-Picture window:', err);
+      throw err;
+    }
+  }
 
+  // Open floating bar in Picture-in-Picture mode (uses createPiPWindow)
+  async openFloatingBarPiP(): Promise<Window | null> {
+    try {
+      const pipWindow = await this.createPiPWindow();
+      
       // Navigate the PiP window to the floating bar route
       pipWindow.location.href = '/floating-bar';
       

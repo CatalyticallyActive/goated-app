@@ -215,53 +215,22 @@ const Analysis = () => {
   React.useEffect(() => {
     if (pipWindow && !pipRootRef.current) {
       debug.log('Setting up PiP window DOM structure...');
-      // Clear the PiP window and add necessary styles
+      
+      // Clear body content
       pipWindow.document.body.innerHTML = '';
       
-      // Copy all styles from the main window
-      const styles = Array.from(document.styleSheets).map(styleSheet => {
-        try {
-          const cssRules = Array.from(styleSheet.cssRules || styleSheet.rules || [])
-            .map(rule => rule.cssText)
-            .join('\n');
-          return cssRules;
-        } catch (e) {
-          // If we can't access the rules (e.g., for external stylesheets), copy the link instead
-          if (styleSheet.href) {
-            const link = pipWindow.document.createElement('link');
-            link.rel = 'stylesheet';
-            link.href = styleSheet.href;
-            pipWindow.document.head.appendChild(link);
-          }
-          return '';
-        }
-      }).filter(Boolean);
-
-      // Combine and inject all accessible styles
-      const combinedStyles = pipWindow.document.createElement('style');
-      combinedStyles.textContent = styles.join('\n');
-      pipWindow.document.head.appendChild(combinedStyles);
+      // Add Tailwind CSS link (frameless styles already injected by ScreenShareService)
+      const tailwindLink = pipWindow.document.createElement('link');
+      tailwindLink.rel = 'stylesheet';
+      tailwindLink.href = '/src/index.css';
+      pipWindow.document.head.appendChild(tailwindLink);
       
-      // Add base styles
-      const style = pipWindow.document.createElement('style');
-      style.textContent = `
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: system-ui, -apple-system, sans-serif; background: #000; }
-        .pip-window { background: linear-gradient(135deg, #111827 0%, #1f2937 50%, #000000 100%); }
-        .pip-backdrop-blur { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
-        .pip-glow-border { box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); border: 1px solid rgba(59, 130, 246, 0.2); }
-        .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .7; } }
-      `;
-      pipWindow.document.head.appendChild(style);
-      
-      // Create and append a root div for React
+      // Create React mount point
       const mount = pipWindow.document.createElement('div');
       mount.id = 'pip-root';
-      mount.className = 'w-full h-full bg-background';
       pipWindow.document.body.appendChild(mount);
       
-      // Create React root and store it
+      // Create React root and render FloatingBar
       import('react-dom/client').then(ReactDOMClient => {
         const { createRoot } = ReactDOMClient;
         if (typeof createRoot === 'function') {
@@ -445,15 +414,16 @@ const Analysis = () => {
               const body = { 
                 userId: authUser.id, 
                 screenshot_id: screenshotId,
-                prompts: [{
-                  prompt_template: normalizedPrompt,
-                  version: structuredPrompt.version,
-                  description: structuredPrompt.description,
-                  variables: structuredPrompt.variables
-                }]
+                prompt: normalizedPrompt
               };
 
               debug.log('Sending to edge function:', JSON.stringify(body, null, 2));
+              debug.log('Request details:', {
+                userId: authUser.id,
+                screenshot_id: screenshotId,
+                promptLength: normalizedPrompt?.length,
+                promptPreview: normalizedPrompt?.substring(0, 100)
+              });
               
               try {
                 const response = await fetch(

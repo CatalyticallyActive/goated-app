@@ -161,17 +161,22 @@ const GoatedAIControls = () => {
       console.log('GoatedAI - Original contains \\r\\n:', originalPrompt.includes('\r\n'));
       console.log('GoatedAI - Normalized contains \\r\\n:', normalizedPrompt.includes('\r\n'));
 
+      const body = {
+        userId: authUser?.id,
+        screenshot_id: screenshotData.id,
+        prompt: normalizedPrompt
+      };
+
+      debug.log('GoatedAI - Sending to edge function:', JSON.stringify(body, null, 2));
+      debug.log('GoatedAI - Request details:', {
+        userId: authUser?.id,
+        screenshot_id: screenshotData.id,
+        promptLength: normalizedPrompt?.length,
+        promptPreview: normalizedPrompt?.substring(0, 100)
+      });
+
       const { data, error } = await supabase.functions.invoke('analyze-screenshot', {
-        body: {
-          userId: authUser?.id,
-          screenshot_id: screenshotData.id,
-          prompts: [{
-            prompt_template: normalizedPrompt,
-            version: structuredPrompt.version,
-            description: structuredPrompt.description,
-            variables: structuredPrompt.variables
-          }]
-        }
+        body
       });
 
       if (error) {
@@ -275,14 +280,17 @@ const GoatedAIControls = () => {
   React.useEffect(() => {
     if (pipWindow && !pipRootRef.current) {
       debug.log('Setting up PiP window DOM structure...');
+      
+      // Clear body content
       pipWindow.document.body.innerHTML = '';
+      
+      // Add Tailwind CSS link
       const tailwindLink = pipWindow.document.createElement('link');
       tailwindLink.rel = 'stylesheet';
       tailwindLink.href = '/src/index.css';  // Adjust if needed for production
       pipWindow.document.head.appendChild(tailwindLink);
-      const style = pipWindow.document.createElement('style');
-      style.textContent = `* { margin: 0; padding: 0; box-sizing: border-box; } body { font-family: system-ui; } /* ... other styles ... */`;
-      pipWindow.document.head.appendChild(style);
+      
+      // Create React mount point (frameless styles already injected by ScreenShareService)
       const mount = pipWindow.document.createElement('div');
       mount.id = 'pip-root';
       pipWindow.document.body.appendChild(mount);

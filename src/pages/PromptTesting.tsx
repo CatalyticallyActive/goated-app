@@ -173,16 +173,30 @@ const PromptTesting = () => {
         };
       });
 
-      // Call the edge function with all prompts
-      const { data, error } = await supabase.functions.invoke('analyze-screenshot', {
-        body: {
-          userId: authUser?.id,
-          screenshot_id: screenshotRecord.id,
-          prompts: normalizedTests
-        }
-      });
+      // Call the edge function for each prompt individually
+      const apiResults = [];
+      for (let i = 0; i < normalizedTests.length; i++) {
+        const test = normalizedTests[i];
+        
+        debug.log(`Testing prompt ${i + 1}/${normalizedTests.length}:`, test.template.substring(0, 100));
+        
+        const { data, error } = await supabase.functions.invoke('analyze-screenshot', {
+          body: {
+            userId: authUser?.id,
+            screenshot_id: screenshotRecord.id,
+            prompt: test.template
+          }
+        });
 
-      if (error) throw error;
+        if (error) {
+          debug.error(`Error testing prompt ${i + 1}:`, error);
+          apiResults.push({ insight: `Error: ${error.message}` });
+        } else {
+          apiResults.push(data);
+        }
+      }
+
+      const data = apiResults;
 
       // Update results
       const results = [...tests];

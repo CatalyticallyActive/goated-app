@@ -41,8 +41,6 @@ const InsightBar: React.FC<InsightBarProps> = ({ visible, onClose }) => {
       style={{ zIndex: 9999 }}
     >
       <Card className="glass-effect border border-white/30 shadow-2xl rounded-full px-6 py-3 flex items-center gap-4 backdrop-blur-md w-full h-full">
-        {/* Category dropdown placeholder */}
-        <Button variant="outline" size="sm" className="rounded-full px-3">[Category]</Button>
         {/* Insight placeholder */}
         <div className="flex-1 text-center text-white text-base font-medium">
           No insights yet.

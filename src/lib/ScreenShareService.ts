@@ -68,15 +68,82 @@ export class ScreenShareService {
         throw new Error('Document Picture-in-Picture API not supported');
       }
 
-      // Request Picture-in-Picture with centralized config
-      const pipWindow = await window.documentPictureInPicture!.requestWindow(ScreenShareService.PIP_CONFIG);
+      // Request Picture-in-Picture with enhanced config for frameless appearance
+      const pipWindow = await window.documentPictureInPicture!.requestWindow({
+        ...ScreenShareService.PIP_CONFIG,
+        disallowReturnToOpener: true, // Reduces browser UI elements
+      });
       
-      debug.log('PiP window created successfully');
+      // Immediately inject frameless styles
+      this.injectFramelessStyles(pipWindow);
+      
+      debug.log('PiP window created successfully with frameless styling');
       return pipWindow;
     } catch (err) {
       debug.error('Failed to create Picture-in-Picture window:', err);
       throw err;
     }
+  }
+
+  // Inject CSS styles to create a frameless appearance
+  private injectFramelessStyles(pipWindow: Window): void {
+    const style = pipWindow.document.createElement('style');
+    style.textContent = `
+      /* Frameless window styling - minimize browser chrome */
+      * { 
+        margin: 0; 
+        padding: 0; 
+        box-sizing: border-box; 
+      }
+      
+      html, body { 
+        margin: 0 !important; 
+        padding: 0 !important; 
+        overflow: hidden !important;
+        background: #000 !important;
+        border: none !important;
+        width: 100% !important;
+        height: 100% !important;
+      }
+      
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
+      
+      #pip-root {
+        width: 100vw !important;
+        height: 100vh !important;
+        border: none !important;
+        outline: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: transparent !important;
+      }
+      
+      /* Ensure content fills entire window */
+      .pip-container {
+        width: 100% !important;
+        height: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+      }
+      
+      /* Hide any potential browser scrollbars */
+      ::-webkit-scrollbar {
+        display: none;
+      }
+      
+      /* Smooth animations */
+      .animate-pulse { 
+        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; 
+      }
+      
+      @keyframes pulse { 
+        0%, 100% { opacity: 1; } 
+        50% { opacity: .7; } 
+      }
+    `;
+    pipWindow.document.head.appendChild(style);
   }
 
   // Open floating bar in Picture-in-Picture mode (uses createPiPWindow)

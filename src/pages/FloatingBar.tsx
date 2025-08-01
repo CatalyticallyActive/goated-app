@@ -145,16 +145,16 @@ const FloatingBar: React.FC<FloatingBarProps> = ({ pipMode = false, onStopSharin
     };
   }, [sessionStartTime, isActive, userId]);
 
-  // PiP-optimized layout with main app styling
+  // PiP-optimized layout with frameless styling
   if (pipMode) {
     return (
       <div 
-        className="w-full h-full bg-background flex flex-col justify-center items-center relative overflow-hidden rounded-lg shadow-2xl border border-border/20"
+        className="pip-container w-full h-full bg-background flex flex-col relative"
         style={{ cursor: isDragging ? 'grabbing' : 'default' }}
       >
-        {/* Header with controls - 50% larger sizing */}
+        {/* Header with controls - frameless optimized */}
         <div 
-          className="window-drag-handle absolute top-0 left-0 right-0 flex justify-between items-center px-5 py-3 bg-card/80 backdrop-blur-md border-b select-none"
+          className="window-drag-handle absolute top-0 left-0 right-0 flex justify-between items-center px-4 py-2 bg-card/95 backdrop-blur-md select-none z-10"
           onMouseDown={handleMouseDown}
           style={{ cursor: 'grab' }}
         >
@@ -183,8 +183,8 @@ const FloatingBar: React.FC<FloatingBarProps> = ({ pipMode = false, onStopSharin
           </Button>
         </div>
         
-        {/* Main content */}
-        <div className="w-full h-full overflow-y-auto pt-16">
+        {/* Main content - maintains scrolling for analyses */}
+        <div className="w-full h-full overflow-y-auto pt-12" style={{ scrollbarWidth: 'thin' }}>
           <div className="space-y-2">
             {analyses.length === 0 && (
               <div className="text-[10px] text-muted-foreground text-center p-2">
@@ -194,7 +194,7 @@ const FloatingBar: React.FC<FloatingBarProps> = ({ pipMode = false, onStopSharin
             {analyses.map((analysis) => (
               <div 
                 key={analysis.id} 
-                className="bg-card/95 backdrop-blur border rounded-md p-2 shadow-sm"
+                className="bg-card/95 backdrop-blur border rounded-md p-2 mx-2 shadow-sm"
               >
                 <div className="text-[10px] text-card-foreground leading-normal">
                   {analysis.parsed_analysis.insight}

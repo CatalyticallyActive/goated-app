@@ -170,13 +170,13 @@ export const AnalysisHistory: React.FC<AnalysisHistoryProps> = ({ userId }) => {
                   )}
                 </div>
                 <div>
-                  <div className="text-base leading-relaxed">
+                  <pre className="text-sm leading-relaxed whitespace-pre-wrap font-sans">
                     {typeof analysis.parsed_analysis === 'object' && 
                      analysis.parsed_analysis.insight && 
                      typeof analysis.parsed_analysis.insight === 'string' 
                        ? analysis.parsed_analysis.insight.replace(/^"(.*)"$/, '$1')  // Remove quotes if present
                        : ''}
-                  </div>
+                  </pre>
                 </div>
               </Card>
             ))}

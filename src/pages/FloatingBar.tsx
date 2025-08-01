@@ -196,9 +196,9 @@ const FloatingBar: React.FC<FloatingBarProps> = ({ pipMode = false, onStopSharin
                 key={analysis.id} 
                 className="bg-card/95 backdrop-blur border rounded-md p-2 mx-2 shadow-sm"
               >
-                <div className="text-[10px] text-card-foreground leading-normal">
+                <pre className="text-[10px] text-card-foreground leading-normal whitespace-pre-wrap font-sans">
                   {analysis.parsed_analysis.insight}
-                </div>
+                </pre>
               </div>
             ))}
           </div>

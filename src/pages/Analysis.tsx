@@ -307,7 +307,7 @@ const Analysis = () => {
                 .eq('user_id', authUser.id)
                 .order('created_at', { ascending: false })
                 .limit(1)
-                .single()
+                .maybeSingle()
                 .setHeader('Accept', 'application/json');
 
               debug.log('User prompt data:', userPromptData);

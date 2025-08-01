@@ -110,7 +110,7 @@ const GoatedAIControls = () => {
         .eq('user_id', authUser?.id)
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       let promptData;
       if (userPromptData && userPromptData.prompt_template) {

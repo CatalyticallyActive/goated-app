@@ -284,10 +284,22 @@ const GoatedAIControls = () => {
       // Clear body content
       pipWindow.document.body.innerHTML = '';
       
-      // Add Tailwind CSS link
+      // Add Tailwind CSS link - detect correct path for production vs development
       const tailwindLink = pipWindow.document.createElement('link');
       tailwindLink.rel = 'stylesheet';
-      tailwindLink.href = '/src/index.css';  // Adjust if needed for production
+      
+      // In production, find the built CSS file; in development, use source file
+      if (import.meta.env.PROD) {
+        // In production, look for the built CSS in the document's existing links
+        const existingCssLinks = Array.from(document.querySelectorAll('link[rel="stylesheet"]'));
+        const mainCssLink = existingCssLinks.find(link => 
+          link.href.includes('index') && link.href.includes('.css')
+        );
+        tailwindLink.href = mainCssLink?.href || '/assets/index.css'; // fallback
+      } else {
+        tailwindLink.href = '/src/index.css'; // development path
+      }
+      
       pipWindow.document.head.appendChild(tailwindLink);
       
       // Create React mount point (frameless styles already injected by ScreenShareService)

@@ -51,8 +51,7 @@ const Personalize = () => {
     timeframes: user.timeframes,
     portfolioSize: user.portfolioSize,
     riskTolerance: user.riskTolerance,
-    maxPositions: user.maxPositions,
-    dailyLossLimit: user.dailyLossLimit,
+    holdingDuration: user.holdingDuration,
     psychologicalFlaws: user.psychologicalFlaws,
     otherInstructions: user.otherInstructions,
     analysisInterval: user.analysisInterval,
@@ -89,8 +88,7 @@ const Personalize = () => {
             timeframes: settings.timeframes || '',
             portfolioSize: settings.portfolioSize || '',
             riskTolerance: settings.riskTolerance || '',
-            maxPositions: settings.maxPositions || '',
-            dailyLossLimit: settings.dailyLossLimit || '',
+            holdingDuration: settings.holdingDuration || '',
             psychologicalFlaws: settings.psychologicalFlaws || '',
             otherInstructions: settings.otherInstructions || '',
             signupCode: settings.signupCode || '',
@@ -104,8 +102,7 @@ const Personalize = () => {
             timeframes: userData.timeframes,
             portfolioSize: userData.portfolioSize,
             riskTolerance: userData.riskTolerance,
-            maxPositions: userData.maxPositions,
-            dailyLossLimit: userData.dailyLossLimit,
+            holdingDuration: userData.holdingDuration,
             psychologicalFlaws: userData.psychologicalFlaws,
             otherInstructions: userData.otherInstructions,
             analysisInterval,
@@ -135,6 +132,17 @@ const Personalize = () => {
         tradingPreferences.analysisInterval,
         tradingPreferences.analysisIntervalUnit
       );
+
+      // Validate minimum interval of 30 seconds
+      if (screenshotInterval < 30) {
+        toast({
+          title: "Invalid Interval",
+          description: "Time between analyses must be at least 30 seconds.",
+          variant: "destructive"
+        });
+        setIsSaving(false);
+        return;
+      }
 
       // Update both settings and screenshot_interval
       const { error } = await supabase
@@ -177,8 +185,7 @@ const Personalize = () => {
     timeframes: user.timeframes,
     portfolioSize: user.portfolioSize,
     riskTolerance: user.riskTolerance,
-    maxPositions: user.maxPositions,
-    dailyLossLimit: user.dailyLossLimit,
+    holdingDuration: user.holdingDuration,
     psychologicalFlaws: user.psychologicalFlaws,
     otherInstructions: user.otherInstructions,
     analysisInterval: user.analysisInterval,
@@ -256,28 +263,15 @@ const Personalize = () => {
                 </RadioGroup>
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <Label htmlFor="positions-personalize" className="text-gray-300">Expected Maximum Simultaneous Positions</Label>
-                  <Input
-                    id="positions-personalize"
-                    type="number"
-                    value={tradingPreferences.maxPositions}
-                    onChange={(e) => handleTradingInputChange('maxPositions', e.target.value)}
-                    className="bg-white/5 border-white/20 text-white focus:border-white/40"
-                    placeholder="e.g., 5"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="lossLimit-personalize" className="text-gray-300">Daily Loss Limit ($ or %)</Label>
-                  <Input
-                    id="lossLimit-personalize"
-                    value={tradingPreferences.dailyLossLimit}
-                    onChange={(e) => handleTradingInputChange('dailyLossLimit', e.target.value)}
-                    className="bg-white/5 border-white/20 text-white focus:border-white/40"
-                    placeholder="e.g., $500 or 5%"
-                  />
-                </div>
+              <div>
+                <Label htmlFor="holdingDuration-personalize" className="text-gray-300">Expected Trade Holding Duration</Label>
+                <Input
+                  id="holdingDuration-personalize"
+                  value={tradingPreferences.holdingDuration}
+                  onChange={(e) => handleTradingInputChange('holdingDuration', e.target.value)}
+                  className="bg-white/5 border-white/20 text-white focus:border-white/40"
+                  placeholder="e.g., 1-2 hours, 15 minutes, 2-3 days"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-6">
@@ -289,8 +283,9 @@ const Personalize = () => {
                     value={tradingPreferences.analysisInterval}
                     onChange={(e) => handleTradingInputChange('analysisInterval', e.target.value)}
                     className="bg-white/5 border-white/20 text-white focus:border-white/40"
-                    placeholder="e.g., 5"
+                    placeholder="e.g., 30"
                   />
+                  <p className="text-xs text-gray-400 mt-1">Minimum: 30 seconds</p>
                 </div>
                 <div>
                   <Label className="text-gray-300">Interval Unit</Label>

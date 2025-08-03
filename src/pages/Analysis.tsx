@@ -399,8 +399,7 @@ const Analysis = () => {
                     ...(promptData.structured_prompt?.variables || {}),
                     trading_style: settings.tradingStyle || userData.tradingStyle || 'undefined',
                     risk_tolerance: settings.riskTolerance || userData.riskTolerance || 'undefined',
-                    max_positions: settings.maxPositions || userData.maxPositions || 'undefined',
-                    daily_loss_limit: settings.dailyLossLimit || userData.dailyLossLimit || 'undefined',
+                    holding_duration: settings.holdingDuration || userData.holdingDuration || 'undefined',
                     timeframes: settings.timeframes || userData.timeframes || 'undefined',
                     portfolio_size: settings.portfolioSize || userData.portfolioSize || 'undefined'
                   }
@@ -418,10 +417,10 @@ const Analysis = () => {
               const normalizedPrompt = originalPrompt.replace(/\r\n/g, '\n');
               
               // Debug logging to verify normalization
-              console.log('Original Prompt (first 200 chars):', originalPrompt.substring(0, 200));
-              console.log('Normalized Prompt (first 200 chars):', normalizedPrompt.substring(0, 200));
-              console.log('Contains \\r\\n before normalization:', originalPrompt.includes('\r\n'));
-              console.log('Contains \\r\\n after normalization:', normalizedPrompt.includes('\r\n'));
+              debug.log('Original Prompt (first 200 chars):', originalPrompt.substring(0, 200));
+              debug.log('Normalized Prompt (first 200 chars):', normalizedPrompt.substring(0, 200));
+              debug.log('Contains \\r\\n before normalization:', originalPrompt.includes('\r\n'));
+              debug.log('Contains \\r\\n after normalization:', normalizedPrompt.includes('\r\n'));
               
               const body = { 
                 userId: authUser.id, 

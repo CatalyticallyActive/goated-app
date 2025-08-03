@@ -147,24 +147,13 @@ const Onboarding = () => {
                   </div>
                   
                   <div>
-                    <Label htmlFor="positions">Maximum Simultaneous Positions</Label>
+                    <Label htmlFor="holdingDuration">Expected Trade Holding Duration</Label>
                     <Input 
-                      id="positions"
-                      type="number"
-                      value={user.maxPositions}
-                      onChange={(e) => handleInputChange('maxPositions', e.target.value)}
+                      id="holdingDuration"
+                      value={user.holdingDuration}
+                      onChange={(e) => handleInputChange('holdingDuration', e.target.value)}
                       className="glass-effect border-white/20 text-white h-12 hover:border-white/30 focus:border-white/50 transition-all duration-300"
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="lossLimit">Daily Loss Limit ($ or %)</Label>
-                    <Input 
-                      id="lossLimit"
-                      value={user.dailyLossLimit}
-                      onChange={(e) => handleInputChange('dailyLossLimit', e.target.value)}
-                      className="glass-effect border-white/20 text-white h-12 hover:border-white/30 focus:border-white/50 transition-all duration-300"
-                      placeholder="e.g., $500 or 5%"
+                      placeholder="e.g., 1-2 hours, 15 minutes, 2-3 days"
                     />
                   </div>
                 </div>

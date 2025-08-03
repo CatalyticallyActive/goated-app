@@ -10,7 +10,10 @@ const corsHeaders = {
 };
 
 async function processAnalysis(supabase, openai, userId, screenshot_id, imageUrl, prompt) {
-  console.log('Received Prompt:', prompt); // Debugging log
+  // console.log('Received Prompt:', prompt); // Disabled for production
+  // Validate prompt
+  if (prompt.length < 10) throw new Error('Prompt is too short (minimum 10 characters)');
+  if (prompt.length > 1000) throw new Error('Prompt is too long (maximum 1000 characters)');
   // Normalize the prompt by replacing \r\n with \n
   const normalizedPrompt = prompt.replace(/\r\n/g, '\n');
   const messages = [
@@ -27,7 +30,8 @@ async function processAnalysis(supabase, openai, userId, screenshot_id, imageUrl
     messages,
     max_tokens: 1000
   });
-  const rawOutput = response.choices[0].message.content || 'No analysis generated';
+  // console.log('OpenAI Response:', response.choices[0]?.message?.content); // Debug - Disabled for production
+  const rawOutput = response.choices[0]?.message.content || 'No analysis generated';
   const lowerOutput = rawOutput.trim().toLowerCase();
   if (lowerOutput.includes("i'm sorry, i can't help with that") || lowerOutput.includes("i'm sorry, i can't assist with the request")) {
     return {
@@ -37,7 +41,6 @@ async function processAnalysis(supabase, openai, userId, screenshot_id, imageUrl
       parsedAnalysis: { insight: 'No valid analysis generated' }
     };
   }
-  // Use the raw output as the insight (no category parsing)
   const insight = rawOutput.trim();
   const parsedAnalysis = { insight };
   return { promptId: null, rawOutput, insight, parsedAnalysis };
@@ -52,9 +55,9 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Received request headers:', Object.fromEntries(req.headers));
+    // console.log('Received request headers:', Object.fromEntries(req.headers)); // Disabled for production
     const bodyText = await req.text();
-    console.log('Raw body received:', bodyText);
+    // console.log('Raw body received:', bodyText); // Disabled for production
     if (!bodyText) throw new Error('Empty request body');
 
     let body;
@@ -119,9 +122,7 @@ serve(async (req) => {
     const { error: rowDeleteError } = await supabase.from('temp-screenshots').delete().eq('id', screenshot_id);
     if (rowDeleteError) console.error('Failed to delete database row:', rowDeleteError);
 
-    const responseData = {
-      insight: result.insight
-    };
+    const responseData = { insight: result.insight };
 
     return new Response(JSON.stringify(responseData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

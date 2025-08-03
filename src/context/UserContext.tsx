@@ -9,8 +9,7 @@ interface UserData {
   timeframes: string;
   portfolioSize: string;
   riskTolerance: string;
-  maxPositions: string;
-  dailyLossLimit: string;
+  holdingDuration: string;
   psychologicalFlaws: string;
   otherInstructions: string;
   signupCode?: string;
@@ -28,14 +27,13 @@ const defaultUserData: UserData = {
   timeframes: "",
   portfolioSize: "",
   riskTolerance: "",
-  maxPositions: "",
-  dailyLossLimit: "",
+  holdingDuration: "",
   psychologicalFlaws: "",
   otherInstructions: "",
   signupCode: "",
   analysisInterval: "",
   analysisIntervalUnit: "minute",
-  screenshot_interval: 10  // default to 10 seconds
+  screenshot_interval: 30  // default to 30 seconds
 };
 
 // Create the context

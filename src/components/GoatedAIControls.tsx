@@ -146,8 +146,7 @@ const GoatedAIControls = () => {
           ...(promptData.structured_prompt?.variables || {}),
           trading_style: settings.tradingStyle || 'undefined',
           risk_tolerance: settings.riskTolerance || 'undefined',
-          max_positions: settings.maxPositions || 'undefined',
-          daily_loss_limit: settings.dailyLossLimit || 'undefined',
+                          holding_duration: settings.holdingDuration || 'undefined',
           timeframes: settings.timeframes || 'undefined',
           portfolio_size: settings.portfolioSize || 'undefined'
         }
@@ -158,8 +157,8 @@ const GoatedAIControls = () => {
       const normalizedPrompt = originalPrompt.replace(/\r\n/g, '\n');
       
       // Debug logging to verify normalization
-      console.log('GoatedAI - Original contains \\r\\n:', originalPrompt.includes('\r\n'));
-      console.log('GoatedAI - Normalized contains \\r\\n:', normalizedPrompt.includes('\r\n'));
+      debug.log('GoatedAI - Original contains \\r\\n:', originalPrompt.includes('\r\n'));
+      debug.log('GoatedAI - Normalized contains \\r\\n:', normalizedPrompt.includes('\r\n'));
 
       const body = {
         userId: authUser?.id,

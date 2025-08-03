@@ -91,8 +91,7 @@ const SignUp = () => {
             timeframes: user.timeframes || '',
             portfolioSize: user.portfolioSize || '',
             riskTolerance: user.riskTolerance || '',
-            maxPositions: user.maxPositions || '',
-            dailyLossLimit: user.dailyLossLimit || '',
+            holdingDuration: user.holdingDuration || '',
             psychologicalFlaws: user.psychologicalFlaws || '',
             otherInstructions: user.otherInstructions || '',
             signupCode: user.signupCode || '',
@@ -119,8 +118,7 @@ const SignUp = () => {
         timeframes: '',
         portfolioSize: '',
         riskTolerance: '',
-        maxPositions: '',
-        dailyLossLimit: '',
+        holdingDuration: '',
         psychologicalFlaws: '',
         otherInstructions: '',
         signupCode: '',
@@ -148,6 +146,12 @@ const SignUp = () => {
           <Card className={`w-full ${step === 5 ? 'max-w-md' : 'max-w-2xl'} glass-card border border-white/20 hover:border-white/30 transition-all duration-300`}>
             <CardHeader className="text-center pb-8">
               <CardTitle className="title-xl text-white">Create Account</CardTitle>
+              <p className="text-gray-400 text-base mb-4">
+                Already have an account?{' '}
+                <Link to="/login" className="text-white hover:text-gray-300 transition-colors font-medium">
+                  Sign in
+                </Link>
+              </p>
               <p className="text-gray-300 text-lg mb-6">
                 {step < 4 ? `Let's personalize your trading assistant (Step ${step} of 3)` : step === 4 ? 'Do you have a sign up code?' : 'Sign up to save your profile'}
               </p>
@@ -246,23 +250,13 @@ const SignUp = () => {
                     </RadioGroup>
                   </div>
                   <div>
-                    <Label htmlFor="positions">Expected Maximum Simultaneous Positions</Label>
+                    <Label htmlFor="holdingDuration">Expected Trade Holding Duration</Label>
                     <Input 
-                      id="positions"
-                      type="number"
-                      value={user.maxPositions}
-                      onChange={(e) => handleInputChange('maxPositions', e.target.value)}
+                      id="holdingDuration"
+                      value={user.holdingDuration}
+                      onChange={(e) => handleInputChange('holdingDuration', e.target.value)}
                       className="glass-effect border-white/20 text-white h-12 hover:border-white/30 focus:border-white/50 transition-all duration-300"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="lossLimit">Daily Loss Limit ($ or %)</Label>
-                    <Input 
-                      id="lossLimit"
-                      value={user.dailyLossLimit}
-                      onChange={(e) => handleInputChange('dailyLossLimit', e.target.value)}
-                      className="glass-effect border-white/20 text-white h-12 hover:border-white/30 focus:border-white/50 transition-all duration-300"
-                      placeholder="e.g., $500 or 5%"
+                      placeholder="e.g., 1-2 hours, 15 minutes, 2-3 days"
                     />
                   </div>
                   <div className="flex justify-between mt-8">
@@ -416,17 +410,11 @@ const SignUp = () => {
                 </>
               )}
               <div className="text-center space-y-6">
-                <p className="text-gray-400 text-base">
-                  Already have an account?{' '}
-                  <Link to="/login" className="text-white hover:text-gray-300 transition-colors font-medium">
-                    Sign in
-                  </Link>
-                </p>
                 <div className="text-sm text-gray-400 text-center leading-relaxed">
                   By creating an account, you agree to our{' '}
-                  <Link to="/terms" className="text-white hover:text-gray-300 transition-colors">Terms of Service</Link>
+                  <a href="https://goated.trade/terms" target="_blank" rel="noopener noreferrer" className="text-white hover:text-gray-300 transition-colors">Terms of Service</a>
                   {' '}and{' '}
-                  <Link to="/privacy" className="text-white hover:text-gray-300 transition-colors">Privacy Policy</Link>
+                  <a href="https://goated.trade/privacy" target="_blank" rel="noopener noreferrer" className="text-white hover:text-gray-300 transition-colors">Privacy Policy</a>
                 </div>
               </div>
             </CardContent>

@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Link, useNavigate } from 'react-router-dom';
 import { useUser } from '@/context/UserContext';
 import { supabase } from '@/lib/supabaseClient';
-import { debug } from '@/lib/utils';
+import { debug, getBaseUrl } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
 const SignUp = () => {
@@ -41,8 +41,35 @@ const SignUp = () => {
   };
 
   const handleGoogleSignup = async () => {
-    debug.log('Google signup');
-    navigate('/analysis');
+    try {
+      debug.log('Google signup');
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${getBaseUrl()}/analysis`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      });
+
+      if (error) {
+        debug.error('Google signup error:', error);
+        toast({
+          title: "Google Signup Failed",
+          description: error.message,
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      debug.error('Google signup error:', error);
+      toast({
+        title: "Google Signup Failed",
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
+        variant: "destructive"
+      });
+    }
   };
 
   const handleEmailSignup = async (e: React.FormEvent) => {
@@ -146,12 +173,14 @@ const SignUp = () => {
           <Card className={`w-full ${step === 5 ? 'max-w-md' : 'max-w-2xl'} glass-card border border-white/20 hover:border-white/30 transition-all duration-300`}>
             <CardHeader className="text-center pb-8">
               <CardTitle className="title-xl text-white">Create Account</CardTitle>
-              <p className="text-gray-400 text-base mb-4">
-                Already have an account?{' '}
-                <Link to="/login" className="text-white hover:text-gray-300 transition-colors font-medium">
-                  Sign in
-                </Link>
-              </p>
+              <div style={{ marginBottom: '1rem' }}>
+                <p className="text-gray-400 text-base">
+                  Already have an account?{' '}
+                  <Link to="/login" className="text-white hover:text-gray-300 transition-colors font-medium">
+                    Sign in
+                  </Link>
+                </p>
+              </div>
               <p className="text-gray-300 text-lg mb-6">
                 {step < 4 ? `Let's personalize your trading assistant (Step ${step} of 3)` : step === 4 ? 'Do you have a sign up code?' : 'Sign up to save your profile'}
               </p>

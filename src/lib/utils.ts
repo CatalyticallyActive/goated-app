@@ -8,7 +8,7 @@ export function cn(...inputs: ClassValue[]) {
 const isProduction = import.meta.env.PROD || import.meta.env.VITE_ENV === 'production';
 
 export const getBaseUrl = () => {
-  return isProduction ? 'https://goated.trade' : window.location.origin;
+  return isProduction ? 'https://app.goated.trade' : window.location.origin;
 };
 
 export const debug = {

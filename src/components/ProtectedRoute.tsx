@@ -9,10 +9,15 @@ interface ProtectedRouteProps {
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { user, loading } = useAuth();
 
-  if (loading) {
+  // Check if we're in an OAuth callback (tokens in URL fragment)
+  const isOAuthCallback = window.location.hash.includes('access_token=');
+
+  if (loading || isOAuthCallback) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
-        <div className="text-white text-lg">Loading...</div>
+        <div className="text-white text-lg">
+          {isOAuthCallback ? 'Completing sign in...' : 'Loading...'}
+        </div>
       </div>
     );
   }

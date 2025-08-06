@@ -42,7 +42,10 @@ const SignUp = () => {
 
   const handleGoogleSignup = async () => {
     try {
-      debug.log('Google signup');
+      const redirectUrl = getBaseUrl();
+      debug.log('Google signup - redirect URL:', redirectUrl + '/analysis');
+      console.log('Environment check - isProd:', import.meta.env.PROD, 'redirect URL:', redirectUrl + '/analysis');
+      
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
